@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+python-dotenv
+sqlalchemy[asyncio]
+asyncpg
+strawberry-graphql
+psycopg2-binary
+pydantic-settings
+pydantic
+colorama
+pytest
+pytest-asyncio
+pytest-cov
+cryptography
+pip-system-certs
+email-validator
