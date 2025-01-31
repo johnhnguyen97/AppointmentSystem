@@ -7,6 +7,7 @@ from src.main.database import engine, Base, get_session
 from src.main.auth import get_current_user
 
 # Create FastAPI app
+<<<<<<< HEAD
 app = FastAPI(
     title="Appointment System API",
     docs_url=None,  # Disable default Swagger UI
@@ -21,6 +22,9 @@ startup_message = """
    http://127.0.0.1:8000
    GraphQL endpoint: http://127.0.0.1:8000/graphql
 """
+=======
+app = FastAPI(title="Appointment System API")
+>>>>>>> a10a25bfbcff1a280a0715f8c35eb240c0706b62
 
 # Add CORS middleware
 app.add_middleware(
@@ -57,4 +61,7 @@ async def health_check():
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+<<<<<<< HEAD
     logger.info(startup_message)
+=======
+>>>>>>> a10a25bfbcff1a280a0715f8c35eb240c0706b62
