@@ -1,13 +1,14 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from strawberry.fastapi import GraphQLRouter
+from strawberry.fastapi import GraphQLRouter, BaseContext
+from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.main.graphql_schema import schema
 from src.main.database import engine, Base, get_session
 from src.main.auth import get_current_user
+from src.main.context import CustomContext
 
 # Create FastAPI app
-<<<<<<< HEAD
 app = FastAPI(
     title="Appointment System API",
     docs_url=None,  # Disable default Swagger UI
@@ -22,9 +23,6 @@ startup_message = """
    http://127.0.0.1:8000
    GraphQL endpoint: http://127.0.0.1:8000/graphql
 """
-=======
-app = FastAPI(title="Appointment System API")
->>>>>>> a10a25bfbcff1a280a0715f8c35eb240c0706b62
 
 # Add CORS middleware
 app.add_middleware(
@@ -36,11 +34,11 @@ app.add_middleware(
 )
 
 # Create session dependency
-async def get_context(session: AsyncSession = Depends(get_session)):
-    return {
-        "session": session,
-        "get_current_user": get_current_user
-    }
+async def get_context(
+    session: AsyncSession = Depends(get_session),
+    request: Request = None
+) -> CustomContext:
+    return CustomContext(session=session, request=request)
 
 # Create GraphQL router
 graphql_app = GraphQLRouter(
@@ -61,7 +59,4 @@ async def health_check():
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-<<<<<<< HEAD
     logger.info(startup_message)
-=======
->>>>>>> a10a25bfbcff1a280a0715f8c35eb240c0706b62
