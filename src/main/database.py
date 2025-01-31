@@ -19,7 +19,7 @@ engine = create_async_engine(
     echo=True,
     pool_pre_ping=True,
     connect_args={
-        "ssl": ssl.create_default_context(cafile="certs/ca.pem")  # Path adjusted
+        "ssl": ssl._create_unverified_context()
     }
 )
 
@@ -29,3 +29,11 @@ async_session = sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+async def get_session():
+    """Get a database session as an async dependency"""
+    session = async_session()
+    try:
+        yield session
+    finally:
+        await session.close()
