@@ -7,7 +7,20 @@ from src.main.database import engine, Base, get_session
 from src.main.auth import get_current_user
 
 # Create FastAPI app
-app = FastAPI(title="Appointment System API")
+app = FastAPI(
+    title="Appointment System API",
+    docs_url=None,  # Disable default Swagger UI
+    redoc_url=None  # Disable ReDoc
+)
+
+# Custom startup message
+import uvicorn.logging
+logger = uvicorn.logging.logging.getLogger("uvicorn.info")
+startup_message = """
+🚀 Server running at:
+   http://127.0.0.1:8000
+   GraphQL endpoint: http://127.0.0.1:8000/graphql
+"""
 
 # Add CORS middleware
 app.add_middleware(
@@ -44,3 +57,4 @@ async def health_check():
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    logger.info(startup_message)
