@@ -54,6 +54,135 @@ Comprehensive test suite covering:
 - Cascade deletion behavior
 - Database constraints
 
+## GraphQL API Documentation
+
+### Authentication
+
+1. Login to get your JWT token:
+```graphql
+mutation Login {
+  login(input: {
+    username: "testuser",
+    password: "testpass123"
+  }) {
+    token
+    user {
+      id
+      username
+    }
+  }
+}
+```
+
+2. Use the returned token in your request headers:
+```json
+{
+  "Authorization": "Bearer your.jwt.token",
+  "Content-Type": "application/json"
+}
+```
+
+### Test User Credentials
+```
+Username: testuser
+Password: testpass123
+```
+
+### Queries
+
+1. Get all appointments (requires authentication):
+```graphql
+query GetAppointments {
+  appointments {
+    id
+    title
+    description
+    start_time
+    duration_minutes
+    status
+    created_at
+    creator {
+      id
+      username
+      first_name
+      last_name
+    }
+    attendees {
+      id
+      username
+      first_name
+      last_name
+    }
+  }
+}
+```
+
+2. Get specific appointment by ID:
+```graphql
+query GetAppointment($id: UUID!) {
+  appointment(id: $id) {
+    id
+    title
+    description
+    start_time
+    duration_minutes
+    status
+    created_at
+    creator {
+      id
+      username
+      first_name
+      last_name
+    }
+    attendees {
+      id
+      username
+      first_name
+      last_name
+    }
+  }
+}
+```
+
+### Mutations
+
+1. Create a new appointment:
+```graphql
+mutation CreateAppointment {
+  createAppointment(
+    title: "Team Meeting"
+    description: "Weekly sync-up"
+    start_time: "2024-02-01T15:00:00Z"
+    duration_minutes: 60
+    attendee_ids: ["user-uuid-1", "user-uuid-2"]
+  ) {
+    id
+    title
+    status
+    creator {
+      username
+    }
+    attendees {
+      username
+    }
+  }
+}
+```
+
+2. Update appointment status:
+```graphql
+mutation UpdateStatus {
+  updateAppointmentStatus(
+    id: "appointment-uuid"
+    status: CONFIRMED
+  ) {
+    id
+    title
+    status
+  }
+}
+```
+
 ## Environment Configuration
 
 Required environment variables:
@@ -84,3 +213,14 @@ pip install -r requirements.txt
 4. Run tests:
 ```bash
 python -m pytest
+```
+
+5. Start the server:
+```bash
+uvicorn src.main.server:app --reload --port 8000
+```
+
+The server will start in development mode with auto-reload enabled. You can access:
+- API documentation: http://localhost:8000/docs
+- Alternative API docs: http://localhost:8000/redoc
+- GraphQL endpoint: http://localhost:8000/graphql
