@@ -7,6 +7,23 @@ from strawberry.types import Info as StrawberryInfo
 from strawberry.scalars import JSON
 from src.main.schema import AppointmentStatus
 from src.main import models, auth
+from src.main.models import ServiceType
+import strawberry
+
+from enum import StrEnum
+
+@strawberry.enum
+class ServiceTypeEnum(StrEnum):
+    HAIRCUT = "Hair Cut"
+    MANICURE = "Manicure"
+    PEDICURE = "Pedicure"
+    FACIAL = "Facial"
+    MASSAGE = "Massage"
+    HAIRCOLOR = "Hair Color"
+    HAIRSTYLE = "Hair Style"
+    MAKEUP = "Makeup"
+    WAXING = "Waxing"
+    OTHER = "Other"
 from strawberry.exceptions import GraphQLError
 from src.main.graphql_context import CustomContext
 
@@ -19,7 +36,7 @@ def get_context(session: Any = None) -> dict:
 class Client:
     id: int
     phone: str
-    service: str
+    service: ServiceTypeEnum
     status: str
     notes: Optional[str]
     user_id: UUID
@@ -27,24 +44,24 @@ class Client:
     @strawberry.field
     async def user(self, info: Info) -> "User":
         session = info.context.session
-        # Use join to load user data in a single query
         result = await session.execute(
-            select(models.User)
-            .join(models.Client)
-            .where(models.Client.id == self.id)
+            select(models.User).where(models.User.id == self.user_id)
         )
         return result.scalar_one()
+
 
 @strawberry.type
 class User:
     id: UUID
+    sequential_id: int
     username: str
     email: str
-    firstName: str
-    lastName: str
+    first_name: str
+    last_name: str
     created_at: datetime
     updated_at: Optional[datetime]
     enabled: bool
+    client_profile: Optional["Client"]
 
 
     @strawberry.field
@@ -97,8 +114,8 @@ class CreateUserInput:
     username: str
     email: str
     password: str
-    firstName: str
-    lastName: str
+    first_name: str
+    last_name: str
 
 @strawberry.input
 class LoginInput:
@@ -112,16 +129,15 @@ class LoginSuccess:
 
 @strawberry.input
 class CreateClientInput:
-    userId: UUID
     phone: str
-    service: str
-    status: str
+    service: ServiceTypeEnum
+    status: Optional[str] = "active"
     notes: Optional[str] = None
 
 @strawberry.input
 class UpdateClientInput:
     phone: Optional[str] = None
-    service: Optional[str] = None
+    service: Optional[ServiceTypeEnum] = None
     status: Optional[str] = None
     notes: Optional[str] = None
 
@@ -145,18 +161,37 @@ class Query:
         return result.scalars().all()
 
     @strawberry.field
-    async def user(self, info: Info, id: UUID) -> Optional[User]:
+    async def user(
+        self, 
+        info: Info, 
+        id: Optional[UUID] = None,
+        sequential_id: Optional[int] = None
+    ) -> Optional[User]:
         session = info.context.session
         current_user = await info.context.get_current_user()
         
         if not current_user:
             raise GraphQLError("Authentication required")
             
+        query = select(models.User)
+        if id:
+            query = query.where(models.User.id == id)
+        elif sequential_id:
+            query = query.where(models.User.sequential_id == sequential_id)
+        else:
+            raise GraphQLError("Must provide either id or sequential_id")
+
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise GraphQLError("User not found")
+
         # Users can only view their own profile for now
-        if current_user.id != id:
+        if current_user.id != user.id:
             raise GraphQLError("Not authorized to view this user")
             
-        return current_user
+        return user
 
     @strawberry.field
     async def appointments(self, info: Info) -> List[Appointment]:
@@ -226,8 +261,8 @@ class Mutation:
             username=input.username,
             email=input.email,
             password=auth.get_password_hash(input.password),
-            first_name=input.firstName,
-            last_name=input.lastName,
+            first_name=input.first_name,
+            last_name=input.last_name,
             enabled=True
         )
         session.add(user)
@@ -242,26 +277,34 @@ class Mutation:
         input: CreateClientInput
     ) -> Client:
         session = info.context.session
+        current_user = await info.context.get_current_user()
         
-        # Verify user exists
+        if not current_user:
+            raise GraphQLError("Authentication required")
+
+        # Check if user already has a client profile
         result = await session.execute(
-            select(models.User).where(models.User.id == input.userId)
+            select(models.Client).where(models.Client.user_id == current_user.id)
         )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise GraphQLError("User not found")
+        if result.scalar_one_or_none():
+            raise GraphQLError("User already has a client profile")
             
+        # Create client with default status if not provided
         client = models.Client(
-            user_id=input.userId,
+            user_id=current_user.id,
             phone=input.phone,
             service=input.service,
-            status=input.status,
+            status=input.status if input.status else "active",
             notes=input.notes
         )
-        session.add(client)
-        await session.commit()
-        await session.refresh(client)
-        return client
+        try:
+            session.add(client)
+            await session.commit()
+            await session.refresh(client)
+            return client
+        except Exception as e:
+            await session.rollback()
+            raise GraphQLError(f"Failed to create client: {str(e)}")
 
     @strawberry.mutation
     async def update_client(
@@ -478,5 +521,52 @@ class Mutation:
         await session.commit()
         await session.refresh(appointment)
         return appointment
+
+    @strawberry.mutation
+    async def delete_user(
+        self,
+        info: Info,
+        user_id: Optional[UUID] = None,
+        username: Optional[str] = None
+    ) -> bool:
+        """Delete a user by UUID or username"""
+        if not user_id and not username:
+            raise GraphQLError("Must provide either user_id or username")
+            
+        session = info.context.session
+        
+        # Build the query based on provided parameters
+        query = select(models.User)
+        if user_id:
+            query = query.where(models.User.id == user_id)
+        else:
+            query = query.where(models.User.username == username)
+            
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return True  # Already deleted
+            
+        # Delete associated client first due to foreign key constraint
+        result = await session.execute(
+            select(models.Client).where(models.Client.user_id == user.id)
+        )
+        client = result.scalar_one_or_none()
+        if client:
+            await session.delete(client)
+            
+        # Delete user's appointments
+        result = await session.execute(
+            select(models.Appointment).where(models.Appointment.creator_id == user.id)
+        )
+        appointments = result.scalars().all()
+        for appointment in appointments:
+            await session.delete(appointment)
+            
+        # Finally delete the user
+        await session.delete(user)
+        await session.commit()
+        return True
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

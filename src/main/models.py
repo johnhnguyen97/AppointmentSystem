@@ -1,9 +1,22 @@
 # src/main/models.py
 from sqlalchemy import Column, String, Boolean, DateTime, UUID, ForeignKey, Integer, Enum as SQLEnum, Table, event
+from enum import StrEnum
+
+class ServiceType(StrEnum):
+    HAIRCUT = "Hair Cut"
+    MANICURE = "Manicure"
+    PEDICURE = "Pedicure"
+    FACIAL = "Facial"
+    MASSAGE = "Massage"
+    HAIRCOLOR = "Hair Color"
+    HAIRSTYLE = "Hair Style"
+    MAKEUP = "Makeup"
+    WAXING = "Waxing"
+    OTHER = "Other"
 from sqlalchemy.ext.hybrid import hybrid_property
 from src.main.schema import AppointmentStatus
 from sqlalchemy.orm import relationship, declarative_mixin
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from uuid import uuid4
 from datetime import datetime
 from src.main.database import Base
@@ -31,12 +44,12 @@ class Client(Base):
     
     id = Column(Integer, primary_key=True)
     phone = Column(String(20), nullable=False)
-    service = Column(String(100), nullable=False)
+    service = Column(SQLEnum(ServiceType), nullable=False)
     status = Column(String(20), nullable=False, default='active')
     notes = Column(String(500))
     
-    # Foreign key to User
-    user_id = Column(UUID, ForeignKey('users.id'), nullable=False)
+    # Foreign key to User with unique constraint
+    user_id = Column(UUID, ForeignKey('users.id'), nullable=False, unique=True)
     # Relationship
     user = relationship("User", back_populates="client_profile")
 
@@ -45,6 +58,8 @@ class User(TimestampMixin, Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(UUID, primary_key=True, default=uuid4, index=True)
+    sequential_id = Column(Integer, unique=True, index=True, 
+                         server_default=text("nextval('user_sequential_id_seq')"))  # Auto-incrementing ID
     username = Column(String, unique=True)
     email = Column(String, unique=True, index=True)
     password = Column(String)

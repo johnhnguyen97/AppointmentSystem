@@ -1,0 +1,64 @@
+# First login to get token
+mutation Login {
+  login(input: {
+    username: "testuser"
+    password: "Password123!"
+  }) {
+    token    # Copy this token and add to HTTP Headers
+    user {
+      sequential_id
+      username
+    }
+  }
+}
+
+# Add token to HTTP Headers at bottom of playground:
+# {
+#   "Authorization": "Bearer your-token-here"
+# }
+
+# Then create client with valid service type
+mutation CreateClient {
+  createClient(input: {
+    phone: "123-456-7890"
+    service: HAIR_CUT    # Enum value, no quotes needed
+    notes: "New client"
+  }) {
+    id              # Auto-incrementing ID
+    phone
+    service         # Will be the enum value
+    notes
+    user {
+      sequential_id # User's readable ID
+      username
+    }
+  }
+}
+
+# Example with different service type
+mutation CreateClientMassage {
+  createClient(input: {
+    phone: "123-456-7890"
+    service: MASSAGE    # Enum value, no quotes needed
+    notes: "New massage client"
+  }) {
+    id
+    service
+    user {
+      sequential_id
+      username
+    }
+  }
+}
+
+# Available service types (use without quotes):
+# HAIR_CUT     -> "Hair Cut"
+# MANICURE     -> "Manicure"
+# PEDICURE     -> "Pedicure"
+# FACIAL       -> "Facial"
+# MASSAGE      -> "Massage"
+# HAIR_COLOR   -> "Hair Color"
+# HAIR_STYLE   -> "Hair Style"
+# MAKEUP       -> "Makeup"
+# WAXING       -> "Waxing"
+# OTHER        -> "Other"

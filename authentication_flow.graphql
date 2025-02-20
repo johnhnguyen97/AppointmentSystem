@@ -1,0 +1,35 @@
+# 1. First create a user account
+mutation CreateUser {
+  createUser(input: {
+    username: "testuser",
+    email: "test@example.com",
+    password: "test123",
+    first_name: "Test",
+    last_name: "User"
+  }) {
+    id
+    username
+    email
+    first_name
+    last_name
+  }
+}
+
+# 2. Then login to get an authentication token
+mutation Login {
+  login(input: {
+    username: "testuser",
+    password: "test123"
+  }) {
+    token
+    user {
+      id
+      username
+    }
+  }
+}
+
+# 3. Use the token in HTTP Headers:
+# {
+#   "Authorization": "Bearer your-token-here"
+# }

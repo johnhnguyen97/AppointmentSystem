@@ -1,0 +1,65 @@
+# Look up user by sequential ID (user-friendly)
+query GetUserBySequentialId {
+  user(sequential_id: 1) {
+    sequential_id  # e.g., 1
+    id            # UUID for system use
+    username
+    email
+  }
+}
+
+# Look up user by UUID (system use)
+query GetUserByUUID {
+  user(id: "0e638202-86d3-46fd-9573-8a7319d57e4e") {
+    sequential_id  # e.g., 1
+    id            # UUID for system use
+    username
+    email
+  }
+}
+
+# Example workflow:
+# 1. Create user (returns both IDs)
+mutation CreateUser {
+  createUser(input: {
+    username: "johndoe"
+    email: "john@example.com"
+    password: "Password123!"
+    first_name: "John"
+    last_name: "Doe"
+  }) {
+    sequential_id  # This will be 1, 2, 3, etc.
+    id            # This will be a UUID
+    username
+  }
+}
+
+# 2. Login (after user is created)
+mutation Login {
+  login(input: {
+    username: "johndoe"
+    password: "Password123!"
+  }) {
+    token
+    user {
+      sequential_id  # Use this for human reference
+      id            # Use this for system operations
+    }
+  }
+}
+
+# 3. Create client (automatically uses logged-in user's ID)
+mutation CreateClient {
+  createClient(input: {
+    phone: "123-456-7890"
+    service: "Hair Cut"
+    notes: "New client"
+  }) {
+    id
+    service
+    user {
+      sequential_id  # Human-friendly ID
+      username
+    }
+  }
+}

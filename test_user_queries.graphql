@@ -1,0 +1,40 @@
+mutation CreateUser {
+  createUser(input: {
+    username: "testuser123"
+    email: "test123@example.com"
+    password: "Password123!"
+    first_name: "Test"
+    last_name: "User"
+  }) {
+    id
+    sequential_id
+    username
+    email
+  }
+}
+
+query GetUser {
+  user(id: "0e638202-86d3-46fd-9573-8a7319d57e4e") {
+    sequential_id
+    id
+    username
+    email
+  }
+}
+
+mutation CreateClient {
+  createClient(input: {
+    phone: "123-456-7890"
+    service: "Hair Cut"
+    notes: "New client"
+  }) {
+    id
+    phone
+    service
+    user {
+      sequential_id
+      id
+      username
+    }
+  }
+}
