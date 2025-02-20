@@ -1,226 +1,229 @@
 # Appointment System
 
-A robust appointment management system built with FastAPI, SQLAlchemy, and Pydantic.
+A GraphQL-based appointment scheduling system that manages users, clients, and appointments.
 
-## Features
+## Data Models
 
-- User Management
-  - User creation and authentication
-  - JWT-based authentication
-  - Password hashing and validation
-  - User profile updates
+### User
+- Base user model with authentication capabilities
+- Has one-to-one relationship with Client profile
+- Can create and attend appointments
 
-- Appointment Management
-  - Create, read, update, and delete appointments
-  - Multiple attendee support
-  - Duration and time slot validation
-  - Appointment status tracking (scheduled, confirmed, cancelled, completed)
-  - Automatic future date validation for appointments
+### Client
+- Represents a client profile associated with a user
+- Contains service-specific information
+- One-to-one relationship with User
 
-## Technical Details
+### Appointment
+- Manages scheduling information
+- Has a creator (User) and multiple attendees (Users)
+- Includes validation for time and duration
 
-### Database Models
+## GraphQL Schema
 
-- **User Model**
-  - UUID-based identification
-  - Username and email (unique constraints)
-  - Secure password storage
-  - Account status tracking
-  - Timestamps for creation and updates
+### Automated User-Client Creation
 
-- **Appointment Model**
-  - UUID-based identification
-  - Title and description
-  - Start time and duration validation
-  - Many-to-many relationship with users (creator and attendees)
-  - Status tracking with enum values
-  - Automatic timestamps
+Two options are provided for creating users and clients with automatic UUID handling:
 
-### Data Validation
+1. **GraphQL Queries** (auto_uuid_queries.graphql):
+   - Sequential mutations that use UUIDs from previous responses
+   - Single operation that creates both user and client
+   - Verification queries to check the created records
+   - Works with GraphQL clients that support automatic variable passing
 
-- Pydantic v2 schemas for request/response validation
-- Custom validators for:
-  - Future date appointments
-  - Duration constraints (15 minutes to 8 hours)
-  - Required attendees
-  - Title length requirements
+2. **Python Script** (create_user_client.py):
+   - Automated user and client creation
+   - Handles UUID passing programmatically
+   - Includes verification step
+   - Requirements: `gql`, `aiohttp`
 
-### Testing
-
-Comprehensive test suite covering:
-- User operations
-- Appointment creation and updates
-- Attendee management
-- Cascade deletion behavior
-- Database constraints
-
-## GraphQL API Documentation
-
-### Authentication
-
-1. Login to get your JWT token:
-```graphql
-mutation Login {
-  login(input: {
-    username: "testuser",
-    password: "testpass123"
-  }) {
-    token
-    user {
-      id
-      username
-    }
-  }
-}
-```
-
-2. Use the returned token in your request headers:
-```json
-{
-  "Authorization": "Bearer your.jwt.token",
-  "Content-Type": "application/json"
-}
-```
-
-### Test User Credentials
-```
-Username: testuser
-Password: testpass123
+To use the Python script:
+```bash
+pip install gql aiohttp
+python create_user_client.py
 ```
 
 ### Queries
 
-1. Get all appointments (requires authentication):
+#### Client Queries
 ```graphql
-query GetAppointments {
-  appointments {
+# Get all clients
+query GetClients {
+  clients {
     id
-    title
-    description
-    start_time
-    duration_minutes
+    phone
+    service
     status
-    created_at
-    creator {
+    notes
+    user {
       id
       username
-      first_name
-      last_name
-    }
-    attendees {
-      id
-      username
-      first_name
-      last_name
+      email
+      firstName
+      lastName
     }
   }
 }
+
+# Get client by ID
+query GetClient($id: Int!) {
+  client(id: $id)
+}
+
+# Get clients by service
+query GetClientsByService($service: String!) {
+  clients(service: $service)
+}
 ```
 
-2. Get specific appointment by ID:
+#### User Queries
 ```graphql
+# Get user by ID (authenticated users can only view their own profile)
+query GetUser($id: UUID!) {
+  user(id: $id)
+}
+```
+
+#### Appointment Queries
+```graphql
+# Get all appointments (for authenticated user)
+query GetAppointments {
+  appointments
+}
+
+# Get specific appointment
 query GetAppointment($id: UUID!) {
-  appointment(id: $id) {
-    id
-    title
-    description
-    start_time
-    duration_minutes
-    status
-    created_at
-    creator {
-      id
-      username
-      first_name
-      last_name
-    }
-    attendees {
-      id
-      username
-      first_name
-      last_name
-    }
-  }
+  appointment(id: $id)
 }
 ```
 
 ### Mutations
 
-1. Create a new appointment:
+#### Client Mutations
 ```graphql
-mutation CreateAppointment {
+# Create new client profile
+mutation CreateClient($userId: UUID!) {
+  createClient(
+    input: {
+      userId: $userId
+      phone: String!
+      service: String!
+      status: String!
+      notes: String
+    }
+  )
+}
+
+# Update existing client
+mutation UpdateClient($id: Int!) {
+  updateClient(
+    id: $id
+    input: {
+      phone: String
+      service: String
+      status: String
+      notes: String
+    }
+  )
+}
+```
+
+#### Appointment Mutations
+```graphql
+# Create new appointment
+mutation CreateAppointment(
+  $title: String!
+  $description: String
+  $startTime: DateTime!
+  $durationMinutes: Int!
+  $attendeeIds: [UUID!]!
+) {
   createAppointment(
-    title: "Team Meeting"
-    description: "Weekly sync-up"
-    start_time: "2024-02-01T15:00:00Z"
-    duration_minutes: 60
-    attendee_ids: ["user-uuid-1", "user-uuid-2"]
-  ) {
-    id
-    title
-    status
-    creator {
-      username
-    }
-    attendees {
-      username
-    }
-  }
+    title: $title
+    description: $description
+    startTime: $startTime
+    durationMinutes: $durationMinutes
+    attendeeIds: $attendeeIds
+  )
+}
+
+# Update appointment
+mutation UpdateAppointment(
+  $id: UUID!
+  $title: String
+  $description: String
+  $startTime: DateTime
+  $durationMinutes: Int
+  $status: AppointmentStatus
+) {
+  updateAppointment(
+    id: $id
+    title: $title
+    description: $description
+    startTime: $startTime
+    durationMinutes: $durationMinutes
+    status: $status
+  )
+}
+
+# Delete appointment
+mutation DeleteAppointment($id: UUID!) {
+  deleteAppointment(id: $id)
+}
+
+# Update appointment attendance
+mutation UpdateAppointmentAttendance($id: UUID!, $attendeeIds: [UUID!]!) {
+  updateAppointmentAttendance(id: $id, attendeeIds: $attendeeIds)
+}
+
+# Update appointment status
+mutation UpdateAppointmentStatus($id: UUID!, $status: AppointmentStatus!) {
+  updateAppointmentStatus(id: $id, status: $status)
 }
 ```
 
-2. Update appointment status:
+## Authentication
+
+The system uses JWT-based authentication. To access protected endpoints:
+
+1. Login using the login mutation to get a token
+2. Include the token in the Authorization header for subsequent requests
+
 ```graphql
-mutation UpdateStatus {
-  updateAppointmentStatus(
-    id: "appointment-uuid"
-    status: CONFIRMED
-  ) {
-    id
-    title
-    status
+mutation Login($username: String!, $password: String!) {
+  login(input: { username: $username, password: $password }) {
+    token
+    user {
+      id
+      username
+      email
+    }
   }
 }
 ```
 
-## Environment Configuration
+## Validation Rules
 
-Required environment variables:
-```
-DATABASE_URL=your_database_url
-TEST_DATABASE_URL=your_test_database_url
-JWT_SECRET_KEY=your_jwt_secret
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-REFRESH_TOKEN_EXPIRE_DAYS=7
-```
+### Appointments
+- Start time cannot be in the past
+- Duration must be between 15 minutes and 8 hours
+- Only creators can cancel appointments
+- Only attendees can decline appointments
 
-## Development
+### Clients
+- Must be associated with a valid user
+- Phone number and service are required
+- Status must be provided
 
-1. Set up your virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+## TODO
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Set up your .env file with the required configuration
-
-4. Run tests:
-```bash
-python -m pytest
-```
-
-5. Start the server:
-```bash
-uvicorn src.main.server:app --reload --port 8000
-```
-
-The server will start in development mode with auto-reload enabled. You can access:
-- API documentation: http://localhost:8000/docs
-- Alternative API docs: http://localhost:8000/redoc
-- GraphQL endpoint: http://localhost:8000/graphql
+- [ ] Add email notifications for appointment changes
+- [ ] Implement recurring appointments
+- [ ] Add calendar integration
+- [ ] Add service duration presets
+- [ ] Implement waitlist functionality
+- [ ] Add client notes history
+- [ ] Add appointment reminders
+- [ ] Implement service categories
+- [ ] Add availability management
+- [ ] Implement client preferences

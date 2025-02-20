@@ -1,10 +1,15 @@
 import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta
-from src.main.models import User, Appointment
-from src.main.auth import get_password_hash, create_access_token
-from src.main.graphql_schema import schema
-from src.main.schema import AppointmentStatus
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from main.models import User, Appointment
+from main.auth import get_password_hash, create_access_token
+from main.graphql_schema import schema
+from main.schema import AppointmentStatus
+from main.graphql_context import CustomContext
 
 @pytest.fixture
 async def test_user(async_session):
@@ -13,8 +18,8 @@ async def test_user(async_session):
         username="testuser",
         email="test@example.com",
         password=get_password_hash("testpass123"),
-        first_name="Test",
-        last_name="User",
+        first_name="Test",  # SQLAlchemy model still uses snake_case
+        last_name="User",   # SQLAlchemy model still uses snake_case
         enabled=True
     )
     async_session.add(user)
@@ -44,9 +49,11 @@ async def test_appointment(async_session, test_user):
     return appointment
 
 async def execute_graphql(query, context=None, variables=None):
+    if context is None:
+        context = CustomContext(session=None, get_current_user=None)
     return await schema.execute(
         query,
-        context_value=context or {},
+        context_value=context,
         variable_values=variables
     )
 
@@ -58,8 +65,8 @@ async def test_login_mutation(async_session):
         username="logintest",
         email="login@test.com",
         password=get_password_hash("password123"),
-        first_name="Login",
-        last_name="Test",
+        first_name="Login",  # SQLAlchemy model still uses snake_case
+        last_name="Test",    # SQLAlchemy model still uses snake_case
         enabled=True
     )
     async_session.add(user)
@@ -73,15 +80,19 @@ async def test_login_mutation(async_session):
             user {
                 username
                 email
+                firstName
+                lastName
             }
         }
     }
     """
     
-    result = await execute_graphql(
-        query,
-        context={"session": async_session}
+    context = CustomContext(
+        session=async_session,
+        get_current_user=None
     )
+    
+    result = await execute_graphql(query, context=context)
     
     assert result.errors is None
     assert result.data["login"]["token"] is not None
@@ -119,10 +130,10 @@ async def test_create_appointment_mutation(async_session, test_user, user_token)
         "attendeeIds": [str(test_user.id)]
     }
     
-    context = {
-        "session": async_session,
-        "get_current_user": lambda *args, **kwargs: test_user
-    }
+    context = CustomContext(
+        session=async_session,
+        get_current_user=lambda *args, **kwargs: test_user
+    )
     
     result = await execute_graphql(query, context=context, variables=variables)
     
@@ -153,10 +164,10 @@ async def test_query_appointments(async_session, test_user, test_appointment):
     }
     """
     
-    context = {
-        "session": async_session,
-        "get_current_user": lambda *args, **kwargs: test_user
-    }
+    context = CustomContext(
+        session=async_session,
+        get_current_user=lambda *args, **kwargs: test_user
+    )
     
     result = await execute_graphql(query, context=context)
     

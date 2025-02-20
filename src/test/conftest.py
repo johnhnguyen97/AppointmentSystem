@@ -13,10 +13,10 @@ async def test_engine():
     print(f"\nUsing test database URL: {test_db_url}")
 
     try:
-        # Disable SSL verification (temporary workaround)
+        # Create SSL context with more permissive settings
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE  # Disable all validation
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         engine = create_async_engine(
             test_db_url,
@@ -27,8 +27,9 @@ async def test_engine():
             }
         )
 
-        # Test connection
+        # Drop all tables and recreate them
         async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
         yield engine

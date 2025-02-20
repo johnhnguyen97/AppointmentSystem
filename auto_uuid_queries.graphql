@@ -1,0 +1,156 @@
+# This query file demonstrates how to automatically use UUIDs from responses
+# You can run these queries in sequence, with each query using results from the previous ones
+
+# 1. Create a new user
+mutation CreateUserAndStoreId {
+  createUser(
+    input: {
+      username: "johndoe"
+      email: "john@example.com"
+      password: "testpass123"
+      firstName: "John"
+      lastName: "Doe"
+    }
+  ) {
+    id  # This UUID will be automatically available as $createUser.id
+    username
+    email
+    firstName
+    lastName
+  }
+}
+
+# 2. Login with the created user to get authentication token
+mutation LoginUser {
+  login(
+    input: {
+      username: "johndoe"
+      password: "testpass123"
+    }
+  ) {
+    token  # Store this token for authenticated requests
+    user {
+      id
+      username
+      firstName
+      lastName
+    }
+  }
+}
+
+# 3. Create a client profile using the UUID from the createUser response
+# Replace $createUser.id with the actual user ID from the response
+mutation CreateClientWithStoredId {
+  createClient(
+    input: {
+      userId: "$createUser.id"  # Use the UUID from the createUser response
+      phone: "(555) 123-4567"
+      service: "haircut"
+      status: "active"
+      notes: "New client"
+    }
+  ) {
+    id
+    phone
+    service
+    status
+    notes
+    user {
+      id
+      username
+      email
+      firstName
+      lastName
+    }
+  }
+}
+
+# Alternative: Create both user and client in sequence
+mutation CreateUserAndClient {
+  # First create the user
+  user: createUser(
+    input: {
+      username: "janesmith"
+      email: "jane@example.com"
+      password: "testpass123"
+      firstName: "Jane"
+      lastName: "Smith"
+    }
+  ) {
+    id
+    username
+    firstName
+    lastName
+  }
+  
+  # Then create the client using the user's ID
+  client: createClient(
+    input: {
+      userId: "$user.id"  # References the ID from the user creation above
+      phone: "(555) 987-6543"
+      service: "color"
+      status: "active"
+      notes: "New client consultation"
+    }
+  ) {
+    id
+    phone
+    service
+    status
+    notes
+    user {
+      id
+      username
+      email
+      firstName
+      lastName
+    }
+  }
+}
+
+# Query to verify the created records
+query VerifyCreation($userId: UUID!) {
+  # Get user by ID (replace with actual UUID)
+  user(id: "$user.id") {
+    id
+    username
+    email
+    firstName
+    lastName
+  }
+  
+  # Get all clients to verify creation
+  clients {
+    id
+    phone
+    service
+    status
+    notes
+    user {
+      id
+      username
+      email
+      firstName
+      lastName
+    }
+  }
+}
+
+# Example of how to use these queries in sequence:
+# 1. Run CreateUserAndStoreId
+# 2. Run LoginUser to get authentication token
+# 3. Use the user ID in CreateClientWithStoredId
+# 4. Use VerifyCreation to check the results
+# 
+# Or alternatively:
+# 1. Run CreateUserAndClient to do both operations at once
+# 2. Use the IDs from the response in VerifyCreation
+
+# Note: Some GraphQL clients (like Apollo Client) support automatic variable passing
+# between operations, making the $user.id references work automatically. For other
+# clients, you'll need to manually copy the UUID from the response.
+
+# Variables for VerifyCreation:
+# {
+#   "userId": "UUID_FROM_CREATE_USER_RESPONSE"
+# }

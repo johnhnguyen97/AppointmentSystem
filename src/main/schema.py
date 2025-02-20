@@ -11,6 +11,27 @@ class AppointmentStatus(str, Enum):
     CANCELLED = "cancelled"
     COMPLETED = "completed"
 
+class Client(BaseModel):
+    id: int
+    user_id: UUID
+    phone: str = Field(..., max_length=20)
+    service: str = Field(..., max_length=100)
+    status: str = Field(..., max_length=20)
+    notes: Optional[str] = Field(None, max_length=500)
+
+    model_config = {
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "user_id": "123e4567-e89b-12d3-a456-426614174000",
+                "phone": "(555) 123-4567",
+                "service": "haircut",
+                "status": "active",
+                "notes": "Prefers afternoon appointments"
+            }
+        }
+    }
+
 class UserBase(BaseModel):
     username: str
     email: EmailStr

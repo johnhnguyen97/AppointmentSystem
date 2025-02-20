@@ -1,6 +1,6 @@
 from typing import List, Optional, Any
 import strawberry
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
 from sqlalchemy import select, or_
 from strawberry.types import Info as StrawberryInfo
@@ -8,7 +8,7 @@ from strawberry.scalars import JSON
 from src.main.schema import AppointmentStatus
 from src.main import models, auth
 from strawberry.exceptions import GraphQLError
-from src.main.context import CustomContext
+from src.main.graphql_context import CustomContext
 
 Info = StrawberryInfo[CustomContext, None]
 
@@ -16,18 +16,39 @@ def get_context(session: Any = None) -> dict:
     return {"session": session}
 
 @strawberry.type
+class Client:
+    id: int
+    phone: str
+    service: str
+    status: str
+    notes: Optional[str]
+    user_id: UUID
+
+    @strawberry.field
+    async def user(self, info: Info) -> "User":
+        session = info.context.session
+        # Use join to load user data in a single query
+        result = await session.execute(
+            select(models.User)
+            .join(models.Client)
+            .where(models.Client.id == self.id)
+        )
+        return result.scalar_one()
+
+@strawberry.type
 class User:
     id: UUID
     username: str
     email: str
-    first_name: str
-    last_name: str
+    firstName: str
+    lastName: str
     created_at: datetime
     updated_at: Optional[datetime]
     enabled: bool
 
+
     @strawberry.field
-    async def created_appointments(self, info: Info) -> List['Appointment']:
+    async def created_appointments(self, info: Info) -> List["Appointment"]:  # Consistent quote style
         session = info.context.session
         result = await session.execute(
             select(models.Appointment).where(models.Appointment.creator_id == self.id)
@@ -35,7 +56,7 @@ class User:
         return result.scalars().all()
 
     @strawberry.field
-    async def attending_appointments(self, info: Info) -> List['Appointment']:
+    async def attending_appointments(self, info: Info) -> List["Appointment"]:  # Consistent quote style
         session = info.context.session
         result = await session.execute(
             select(models.Appointment).where(models.Appointment.attendees.any(id=self.id))
@@ -54,7 +75,7 @@ class Appointment:
     updated_at: Optional[datetime]
 
     @strawberry.field
-    async def creator(self, info: Info) -> User:
+    async def creator(self, info: Info) -> "User":  # Use string for forward reference
         session = info.context.session
         result = await session.execute(
             select(models.User).where(models.User.id == self.creator_id)
@@ -62,7 +83,7 @@ class Appointment:
         return result.scalar_one()
 
     @strawberry.field
-    async def attendees(self, info: Info) -> List[User]:
+    async def attendees(self, info: Info) -> List["User"]:  # Use string for forward reference
         session = info.context.session
         result = await session.execute(
             select(models.User).join(models.appointment_attendees).where(
@@ -72,6 +93,14 @@ class Appointment:
         return result.scalars().all()
 
 @strawberry.input
+class CreateUserInput:
+    username: str
+    email: str
+    password: str
+    firstName: str
+    lastName: str
+
+@strawberry.input
 class LoginInput:
     username: str
     password: str
@@ -79,10 +108,42 @@ class LoginInput:
 @strawberry.type
 class LoginSuccess:
     token: str
-    user: User
+    user: "User"  # Use string for forward reference
+
+@strawberry.input
+class CreateClientInput:
+    userId: UUID
+    phone: str
+    service: str
+    status: str
+    notes: Optional[str] = None
+
+@strawberry.input
+class UpdateClientInput:
+    phone: Optional[str] = None
+    service: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
 
 @strawberry.type
 class Query:
+    @strawberry.field
+    async def client(self, info: Info, id: int) -> Optional[Client]:
+        session = info.context.session
+        result = await session.execute(
+            select(models.Client).where(models.Client.id == id)
+        )
+        return result.scalar_one_or_none()
+
+    @strawberry.field
+    async def clients(self, info: Info, service: Optional[str] = None) -> List[Client]:
+        session = info.context.session
+        query = select(models.Client)
+        if service:
+            query = query.where(models.Client.service == service)
+        result = await session.execute(query)
+        return result.scalars().all()
+
     @strawberry.field
     async def user(self, info: Info, id: UUID) -> Optional[User]:
         session = info.context.session
@@ -137,6 +198,100 @@ class Query:
 
 @strawberry.type
 class Mutation:
+    @strawberry.mutation
+    async def create_user(
+        self,
+        info: Info,
+        input: CreateUserInput
+    ) -> User:
+        session = info.context.session
+        
+        # Check if username already exists
+        result = await session.execute(
+            select(models.User).where(models.User.username == input.username)
+        )
+        if result.scalar_one_or_none():
+            raise GraphQLError("Username already exists")
+            
+        # Check if email already exists
+        result = await session.execute(
+            select(models.User).where(models.User.email == input.email)
+        )
+        if result.scalar_one_or_none():
+            raise GraphQLError("Email already exists")
+            
+        # Create new user instance
+        user = models.User(
+            id=uuid4(),
+            username=input.username,
+            email=input.email,
+            password=auth.get_password_hash(input.password),
+            first_name=input.firstName,
+            last_name=input.lastName,
+            enabled=True
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+    @strawberry.mutation
+    async def create_client(
+        self,
+        info: Info,
+        input: CreateClientInput
+    ) -> Client:
+        session = info.context.session
+        
+        # Verify user exists
+        result = await session.execute(
+            select(models.User).where(models.User.id == input.userId)
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            raise GraphQLError("User not found")
+            
+        client = models.Client(
+            user_id=input.userId,
+            phone=input.phone,
+            service=input.service,
+            status=input.status,
+            notes=input.notes
+        )
+        session.add(client)
+        await session.commit()
+        await session.refresh(client)
+        return client
+
+    @strawberry.mutation
+    async def update_client(
+        self,
+        info: Info,
+        id: int,
+        input: UpdateClientInput
+    ) -> Client:
+        session = info.context.session
+        result = await session.execute(
+            select(models.Client).where(models.Client.id == id)
+        )
+        client = result.scalar_one_or_none()
+        
+        if not client:
+            raise GraphQLError("Client not found")
+            
+        if input.phone is not None:
+            client.phone = input.phone
+        if input.service is not None:
+            client.service = input.service
+        if input.status is not None:
+            client.status = input.status
+        if input.notes is not None:
+            client.notes = input.notes
+            
+        await session.commit()
+        await session.refresh(client)
+        return client
+
     @strawberry.mutation
     async def login(self, info: Info, input: LoginInput) -> LoginSuccess:
         session = info.context.session

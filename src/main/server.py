@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.main.graphql_schema import schema
 from src.main.database import engine, Base, get_session
 from src.main.auth import get_current_user
-from src.main.context import CustomContext
+from src.main.graphql_context import CustomContext
 
 # Create FastAPI app
 app = FastAPI(
