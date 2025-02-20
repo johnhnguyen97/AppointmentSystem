@@ -44,7 +44,7 @@ class Client(Base):
     
     id = Column(Integer, primary_key=True)
     phone = Column(String(20), nullable=False)
-    service = Column(SQLEnum(ServiceType), nullable=False)
+    service = Column(String, nullable=False)
     status = Column(String(20), nullable=False, default='active')
     notes = Column(String(500))
     
