@@ -6,10 +6,11 @@ from enum import Enum
 
 
 class AppointmentStatus(str, Enum):
-    SCHEDULED = "scheduled"
-    CONFIRMED = "confirmed"
-    CANCELLED = "cancelled"
-    COMPLETED = "completed"
+    SCHEDULED = "SCHEDULED"
+    CONFIRMED = "CONFIRMED"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    DECLINED = "DECLINED"
 
 
 class ServiceType(str, Enum):

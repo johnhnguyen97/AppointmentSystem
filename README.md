@@ -1,39 +1,93 @@
-# Appointment System
+# Twitch Chat Overlay Widget
 
-## Git Setup Instructions
+A JavaScript widget that handles Twitch chat messages and events with smooth animations.
 
-1. Initialize Git repository:
-```bash
-git init
+## Features
+
+- Real-time chat message display with badges and emotes
+- Event handling (followers, subscribers, cheers, tips, raids)
+- Smooth animations using GSAP
+- Message queueing system
+- Error handling and logging 
+- Test mode simulation
+
+## Dependencies
+
+- [GSAP](https://greensock.com/gsap/) for animations
+- [Lodash](https://lodash.com/) for debouncing
+- StreamElements API for widget integration
+
+## Installation
+
+1. Create a new overlay in your StreamElements dashboard
+2. Add a Custom Widget
+3. Copy the contents of `chat_widget.js` into the JavaScript section
+4. Configure the widget settings as needed
+
+## Configuration
+
+The widget accepts the following settings:
+
+- `duration`: Display duration for messages in milliseconds (default: 5000)
+
+## Usage
+
+The widget automatically handles:
+
+- Chat messages with badges and emotes
+- Follower events
+- Subscriber events
+- Cheer events
+- Tip events
+- Raid events
+
+## Development
+
+### Project Structure
+
+```
+chat_widget.js        # Main widget implementation
 ```
 
-2. Add remote repository:
-```bash
-git remote add origin https://github.com/johnhnguyen97/AppointmentSystem.git
-```
+### Code Organization
 
-3. Configure Git credentials:
-```bash
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
-```
+- **Initialization**: Basic setup and error checking
+- **Configurations**: Animation and event type definitions
+- **Utility Functions**: Helper functions like emote replacement
+- **Animation Functions**: GSAP animation implementations
+- **Message Handling**: Core message display logic
+- **Event Listeners**: StreamElements event handling
+- **Simulation Functions**: Test mode functionality
 
-4. Initial commit and push:
-```bash
-git add .
-git commit -m "Initial commit"
-git push -f origin main
-```
+### TODO
 
-Note: We use `-f` flag for the first push to override the unrelated histories error.
+- [ ] Add customizable themes
+- [ ] Implement message filters
+- [ ] Add sound effects support
+- [ ] Create custom animation presets
+- [ ] Add message moderation features
 
-## Project Structure
+## Testing
 
-- `src/main/`: Core application code
-  - `models.py`: Database models
-  - `schema.py`: GraphQL schema definitions
-  - `graphql_schema.py`: GraphQL resolvers
-  - `server.py`: FastAPI server setup
-  
-- `migrations/`: Database migrations
-- `src/test/`: Test files
+The widget includes built-in simulation functions for testing:
+- `simulateMessageEvent()`: Simulates a chat message
+- `simulateFollowerEvent()`: Simulates a new follower
+
+Test mode is automatically enabled in the StreamElements editor.
+
+## Error Handling
+
+The widget implements comprehensive error handling:
+- DOM element validation
+- GSAP dependency checking
+- Try-catch blocks for critical operations
+- Fallback animations
+- Console error logging
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/new-feature`
+3. Commit your changes: `git commit -am 'Add new feature'`
+4. Push to the branch: `git push origin feature/new-feature`
+5. Submit a pull request

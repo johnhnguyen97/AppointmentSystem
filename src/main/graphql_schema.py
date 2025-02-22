@@ -1,122 +1,14 @@
-from typing import List, Optional, Any
-import strawberry
+from datetime import datetime, timedelta, UTC
+from typing import List, Optional
 from uuid import UUID, uuid4
-from datetime import datetime
-from sqlalchemy import select, or_
-from strawberry.types import Info as StrawberryInfo
-from strawberry.exceptions import GraphQLError
+
+import strawberry
+from sqlalchemy import select, and_, or_, func, text
+from strawberry.types import Info
+
+from src.main.models import User, Appointment, Client, ServiceHistory, ServiceType, AppointmentStatus
+from src.main.auth import check_auth, get_password_hash
 from src.main.graphql_context import CustomContext
-from src.main.schema import AppointmentStatus
-from src.main import models, auth
-from enum import StrEnum
-
-Info = StrawberryInfo[CustomContext, None]
-
-@strawberry.enum
-class ServiceTypeEnum(StrEnum):
-    HAIRCUT = "Hair Cut"
-    MANICURE = "Manicure"
-    PEDICURE = "Pedicure"
-    FACIAL = "Facial"
-    MASSAGE = "Massage"
-    HAIRCOLOR = "Hair Color"
-    HAIRSTYLE = "Hair Style"
-    MAKEUP = "Makeup"
-    WAXING = "Waxing"
-    OTHER = "Other"
-
-def get_context(session: Any = None) -> dict:
-    return {"session": session}
-
-@strawberry.type
-class Client:
-    id: int
-    phone: str
-    service: ServiceTypeEnum
-    status: str
-    notes: Optional[str]
-    user_id: UUID
-
-    @strawberry.field
-    async def user(self, info: Info) -> "User":
-        session = info.context.session
-        result = await session.execute(
-            select(models.User).where(models.User.id == self.user_id)
-        )
-        return result.scalar_one()
-
-    @classmethod
-    def from_sqlalchemy(cls, db_client: models.Client) -> "Client":
-        try:
-            service_enum = ServiceTypeEnum[db_client.service.replace(" ", "").upper()]
-        except KeyError:
-            service_enum = ServiceTypeEnum.OTHER  # Fallback for invalid values
-        return cls(
-            id=db_client.id,
-            phone=db_client.phone,
-            service=service_enum,
-            status=db_client.status,
-            notes=db_client.notes,
-            user_id=db_client.user_id
-        )
-
-@strawberry.type
-class User:
-    id: UUID
-    sequential_id: int
-    username: str
-    email: str
-    first_name: str
-    last_name: str
-    created_at: datetime
-    updated_at: Optional[datetime]
-    enabled: bool
-    client_profile: Optional["Client"]
-
-    @strawberry.field
-    async def created_appointments(self, info: Info) -> List["Appointment"]:
-        session = info.context.session
-        result = await session.execute(
-            select(models.Appointment).where(models.Appointment.creator_id == self.id)
-        )
-        return result.scalars().all()
-
-    @strawberry.field
-    async def attending_appointments(self, info: Info) -> List["Appointment"]:
-        session = info.context.session
-        result = await session.execute(
-            select(models.Appointment).where(models.Appointment.attendees.any(id=self.id))
-        )
-        return result.scalars().all()
-
-@strawberry.type
-class Appointment:
-    id: UUID
-    title: str
-    description: Optional[str]
-    start_time: datetime
-    duration_minutes: int
-    status: AppointmentStatus
-    created_at: datetime
-    updated_at: Optional[datetime]
-
-    @strawberry.field
-    async def creator(self, info: Info) -> "User":
-        session = info.context.session
-        result = await session.execute(
-            select(models.User).where(models.User.id == self.creator_id)
-        )
-        return result.scalar_one()
-
-    @strawberry.field
-    async def attendees(self, info: Info) -> List["User"]:
-        session = info.context.session
-        result = await session.execute(
-            select(models.User).join(models.appointment_attendees).where(
-                models.appointment_attendees.c.appointment_id == self.id
-            )
-        )
-        return result.scalars().all()
 
 @strawberry.input
 class CreateUserInput:
@@ -125,403 +17,371 @@ class CreateUserInput:
     password: str
     first_name: str
     last_name: str
+    enabled: bool = True
 
 @strawberry.input
-class LoginInput:
-    username: str
-    password: str
-
-@strawberry.type
-class LoginSuccess:
-    token: str
-    user: "User"
+class UpdateUserInput:
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    enabled: Optional[bool] = None
 
 @strawberry.input
 class CreateClientInput:
-    user_id: UUID
     phone: str
-    service: ServiceTypeEnum
-    status: Optional[str] = "active"
+    service: ServiceType
     notes: Optional[str] = None
+    user_id: UUID
 
 @strawberry.input
 class UpdateClientInput:
     phone: Optional[str] = None
-    service: Optional[ServiceTypeEnum] = None
+    service: Optional[ServiceType] = None
     status: Optional[str] = None
     notes: Optional[str] = None
 
 @strawberry.type
+class UserType:
+    id: UUID
+    username: str
+    email: str
+    first_name: str
+    last_name: str
+    enabled: bool
+    is_admin: bool
+
+@strawberry.type
+class ClientType:
+    id: UUID
+    phone: str
+    service: str
+    status: str
+    notes: Optional[str]
+    user_id: UUID
+    
+    @strawberry.field
+    async def user(self, info: Info[CustomContext, None]) -> UserType:
+        stmt = select(User).where(User.id == self.user_id)
+        result = await info.context.session.execute(stmt)
+        return result.scalars().first()
+
+@strawberry.type
+class AppointmentType:
+    id: UUID
+    title: str
+    description: Optional[str]
+    start_time: datetime
+    duration_minutes: int
+    status: AppointmentStatus
+    creator_id: UUID
+
+    @strawberry.field
+    async def creator(self, info: Info[CustomContext, None]) -> UserType:
+        stmt = select(User).where(User.id == self.creator_id)
+        result = await info.context.session.execute(stmt)
+        return result.scalars().first()
+
+    @strawberry.field
+    async def attendees(self, info: Info[CustomContext, None]) -> List[UserType]:
+        stmt = select(User).join(Appointment.attendees).where(Appointment.id == self.id)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
+
+@strawberry.type
+class ServiceHistoryType:
+    id: UUID
+    client_id: UUID
+    service_type: str
+    provider_name: str
+    date_of_service: datetime
+    notes: Optional[str]
+
+@strawberry.type
 class Query:
     @strawberry.field
-    async def client(self, info: Info, id: int) -> Optional[Client]:
-        session = info.context.session
-        result = await session.execute(
-            select(models.Client).where(models.Client.id == id)
-        )
-        db_client = result.scalar_one_or_none()
-        return Client.from_sqlalchemy(db_client) if db_client else None
-
-    @strawberry.field
-    async def clients(self, info: Info, service: Optional[str] = None) -> List[Client]:
-        session = info.context.session
-        query = select(models.Client)
-        if service:
-            query = query.where(models.Client.service == service)
-        result = await session.execute(query)
-        return [Client.from_sqlalchemy(client) for client in result.scalars().all()]
-
-    @strawberry.field
-    async def user(self, info: Info, id: Optional[UUID] = None, sequential_id: Optional[int] = None) -> Optional[User]:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-            
-        query = select(models.User)
-        if id:
-            query = query.where(models.User.id == id)
-        elif sequential_id:
-            query = query.where(models.User.sequential_id == sequential_id)
-        else:
-            raise GraphQLError("Must provide either id or sequential_id")
-
-        result = await session.execute(query)
-        user = result.scalar_one_or_none()
-
-        if not user:
-            raise GraphQLError("User not found")
-
-        if current_user.id != user.id:
-            raise GraphQLError("Not authorized to view this user")
-            
+    async def user(self, info: Info[CustomContext, None], id: UUID) -> Optional[UserType]:
+        await check_auth(info)
+        stmt = select(User).where(User.id == id)
+        result = await info.context.session.execute(stmt)
+        user = result.scalars().first()
         return user
 
     @strawberry.field
-    async def appointments(self, info: Info) -> List[Appointment]:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-        result = await session.execute(
-            select(models.Appointment).where(
-                or_(
-                    models.Appointment.creator_id == current_user.id,
-                    models.Appointment.attendees.any(id=current_user.id)
-                )
-            )
-        )
-        return result.scalars().all()
+    async def client(self, info: Info[CustomContext, None], id: UUID) -> Optional[ClientType]:
+        await check_auth(info)
+        stmt = select(Client).where(Client.id == id)
+        result = await info.context.session.execute(stmt)
+        client = result.scalars().first()
+        return client
 
     @strawberry.field
-    async def appointment(self, info: Info, id: UUID) -> Optional[Appointment]:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-            
-        result = await session.execute(
-            select(models.Appointment).where(
-                models.Appointment.id == id,
-                or_(
-                    models.Appointment.creator_id == current_user.id,
-                    models.Appointment.attendees.any(id=current_user.id)
-                )
+    async def appointments(self, info: Info[CustomContext, None]) -> List[AppointmentType]:
+        current_user = await check_auth(info)
+        stmt = select(Appointment).where(
+            or_(
+                Appointment.creator_id == current_user.id,
+                Appointment.attendees.any(User.id == current_user.id)
             )
         )
-        return result.scalar_one_or_none()
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
+
+    @strawberry.field
+    async def allAppointments(self, info: Info[CustomContext, None]) -> List[AppointmentType]:
+        current_user = await check_auth(info)
+        if not current_user.is_admin:
+            raise PermissionError("Not authorized to view all appointments")
+        
+        stmt = select(Appointment)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
+
+    @strawberry.field
+    async def clientServiceHistory(
+        self, info: Info[CustomContext, None], client_id: UUID
+    ) -> List[ServiceHistoryType]:
+        current_user = await check_auth(info)
+        stmt = select(ServiceHistory).where(ServiceHistory.client_id == client_id)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
 
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def create_user(self, info: Info, input: CreateUserInput) -> User:
-        session = info.context.session
-        
-        result = await session.execute(
-            select(models.User).where(models.User.username == input.username)
+    async def create_user(
+        self,
+        info: Info[CustomContext, None],
+        input: CreateUserInput
+    ) -> UserType:
+        current_user = await check_auth(info)
+        if not current_user.is_admin:
+            raise PermissionError("Only administrators can create users")
+
+        # Check if username or email already exists
+        stmt = select(User).where(
+            or_(User.username == input.username, User.email == input.email)
         )
-        if result.scalar_one_or_none():
-            raise GraphQLError("Username already exists")
-            
-        result = await session.execute(
-            select(models.User).where(models.User.email == input.email)
-        )
-        if result.scalar_one_or_none():
-            raise GraphQLError("Email already exists")
-            
-        user = models.User(
+        result = await info.context.session.execute(stmt)
+        if result.scalars().first():
+            raise ValueError("Username or email already exists")
+
+        user = User(
             id=uuid4(),
             username=input.username,
             email=input.email,
-            password=auth.get_password_hash(input.password),
+            password=get_password_hash(input.password),
             first_name=input.first_name,
             last_name=input.last_name,
-            enabled=True
+            enabled=input.enabled
         )
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        info.context.session.add(user)
+        await info.context.session.commit()
         return user
 
     @strawberry.mutation
-    async def create_client(self, info: Info, input: CreateClientInput) -> Client:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
+    async def update_user(
+        self,
+        info: Info[CustomContext, None],
+        id: UUID,
+        input: UpdateUserInput
+    ) -> UserType:
+        current_user = await check_auth(info)
+        if not current_user.is_admin and current_user.id != id:
+            raise PermissionError("Not authorized to update this user")
 
-        # Optionally restrict to creator or admin
-        # if current_user.id != input.user_id:
-        #     raise GraphQLError("You can only create a client for yourself")
-
-        result = await session.execute(
-            select(models.User).where(models.User.id == input.user_id)
-        )
-        user = result.scalar_one_or_none()
+        stmt = select(User).where(User.id == id)
+        result = await info.context.session.execute(stmt)
+        user = result.scalars().first()
         if not user:
-            raise GraphQLError("User not found")
+            raise ValueError("User not found")
 
-        result = await session.execute(
-            select(models.Client).where(models.Client.user_id == input.user_id)
-        )
-        if result.scalar_one_or_none():
-            raise GraphQLError("User already has a client profile")
+        if input.email is not None:
+            # Check if email is already used by another user
+            stmt = select(User).where(
+                and_(User.email == input.email, User.id != id)
+            )
+            result = await info.context.session.execute(stmt)
+            if result.scalars().first():
+                raise ValueError("Email already in use")
+            user.email = input.email
 
-        client = models.Client(
-            user_id=input.user_id,
-            phone=input.phone,
-            service=input.service.value,  # Maps to SQLAlchemy enum string
-            status=input.status if input.status else "active",
-            notes=input.notes
-        )
-        try:
-            session.add(client)
-            await session.commit()
-            await session.refresh(client)
-            return Client.from_sqlalchemy(client)
-        except Exception as e:
-            await session.rollback()
-            raise GraphQLError(f"Failed to create client: {str(e)}")
+        if input.first_name is not None:
+            user.first_name = input.first_name
+        if input.last_name is not None:
+            user.last_name = input.last_name
+        if input.enabled is not None and current_user.is_admin:
+            user.enabled = input.enabled
+
+        await info.context.session.commit()
+        return user
 
     @strawberry.mutation
-    async def update_client(self, info: Info, id: int, input: UpdateClientInput) -> Client:
-        session = info.context.session
-        result = await session.execute(
-            select(models.Client).where(models.Client.id == id)
+    async def create_client(
+        self,
+        info: Info[CustomContext, None],
+        input: CreateClientInput
+    ) -> ClientType:
+        current_user = await check_auth(info)
+        if not current_user.is_admin:
+            raise PermissionError("Only administrators can create clients")
+
+        # Verify user exists
+        stmt = select(User).where(User.id == input.user_id)
+        result = await info.context.session.execute(stmt)
+        if not result.scalars().first():
+            raise ValueError("User not found")
+
+        client = Client(
+            id=uuid4(),
+            phone=input.phone,
+            service=input.service.value,
+            status="active",
+            notes=input.notes,
+            user_id=input.user_id
         )
-        client = result.scalar_one_or_none()
+        info.context.session.add(client)
+        await info.context.session.commit()
+        return client
+
+    @strawberry.mutation
+    async def update_client(
+        self,
+        info: Info[CustomContext, None],
+        id: UUID,
+        input: UpdateClientInput
+    ) -> ClientType:
+        current_user = await check_auth(info)
         
+        stmt = select(Client).where(Client.id == id)
+        result = await info.context.session.execute(stmt)
+        client = result.scalars().first()
         if not client:
-            raise GraphQLError("Client not found")
-            
+            raise ValueError("Client not found")
+
+        if not current_user.is_admin:
+            raise PermissionError("Only administrators can update clients")
+
         if input.phone is not None:
             client.phone = input.phone
         if input.service is not None:
-            client.service = input.service.value  # Maps to SQLAlchemy enum string
+            client.service = input.service.value
         if input.status is not None:
             client.status = input.status
         if input.notes is not None:
             client.notes = input.notes
-            
-        await session.commit()
-        await session.refresh(client)
-        return Client.from_sqlalchemy(client)
+
+        await info.context.session.commit()
+        return client
 
     @strawberry.mutation
-    async def login(self, info: Info, input: LoginInput) -> LoginSuccess:
-        session = info.context.session
-        user = await auth.authenticate_user(input.username, input.password, session)
-        if not user:
-            raise GraphQLError("Invalid username or password")
+    async def create_appointment(
+        self,
+        info: Info[CustomContext, None],
+        title: str,
+        description: Optional[str],
+        start_time: str,
+        duration_minutes: int,
+        attendee_ids: List[UUID],
+    ) -> AppointmentType:
+        current_user = await check_auth(info)
         
-        access_token = auth.create_access_token(data={"sub": str(user.id)})
-        return LoginSuccess(token=access_token, user=user)
+        # Parse datetime from ISO string
+        start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        # Calculate end time
+        end_time = start_time + timedelta(minutes=duration_minutes)
+        
+        # Check for overlapping appointments using SQL
+        overlap_stmt = select(Appointment).where(
+            and_(
+                Appointment.start_time < end_time,
+                text("appointments.start_time + (appointments.duration_minutes || ' minutes')::interval > :start_time")
+            )
+        ).params(start_time=start_time)
+        
+        result = await info.context.session.execute(overlap_stmt)
+        if result.scalars().first():
+            raise ValueError("Appointment overlaps with existing appointment")
 
-    @strawberry.mutation
-    async def create_appointment(self, info: Info, title: str, description: Optional[str], start_time: datetime, duration_minutes: int, attendee_ids: List[UUID]) -> Appointment:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-        
-        result = await session.execute(
-            select(models.User).where(models.User.id.in_(attendee_ids))
-        )
-        attendees = result.scalars().all()
-        if len(attendees) != len(attendee_ids):
-            raise GraphQLError("One or more attendees not found")
-            
-        appointment = models.Appointment(
+        # Create new appointment
+        appointment = Appointment(
+            id=uuid4(),
             title=title,
             description=description,
             start_time=start_time,
             duration_minutes=duration_minutes,
             creator_id=current_user.id,
-            attendees=attendees
+            status=AppointmentStatus.SCHEDULED
         )
-        session.add(appointment)
-        await session.commit()
-        await session.refresh(appointment)
+
+        if attendee_ids:
+            # Fetch attendees
+            stmt = select(User).where(User.id.in_(attendee_ids))
+            result = await info.context.session.execute(stmt)
+            attendees = result.scalars().all()
+            appointment.attendees.extend(attendees)
+
+        info.context.session.add(appointment)
+        await info.context.session.commit()
         return appointment
 
     @strawberry.mutation
-    async def update_appointment(self, info: Info, id: UUID, title: Optional[str] = None, description: Optional[str] = None, start_time: Optional[datetime] = None, duration_minutes: Optional[int] = None, status: Optional[AppointmentStatus] = None) -> Appointment:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        result = await session.execute(
-            select(models.Appointment).where(
-                models.Appointment.id == id,
-                models.Appointment.creator_id == current_user.id
-            )
-        )
-        appointment = result.scalar_one_or_none()
+    async def update_appointment_status(
+        self,
+        info: Info[CustomContext, None],
+        appointment_id: UUID,
+        new_status: AppointmentStatus
+    ) -> AppointmentType:
+        current_user = await check_auth(info)
+        stmt = select(Appointment).where(Appointment.id == appointment_id)
+        result = await info.context.session.execute(stmt)
+        appointment = result.scalars().first()
         
         if not appointment:
-            raise GraphQLError("Appointment not found or you don't have permission to update it")
+            raise ValueError("Appointment not found")
             
-        if title is not None:
-            appointment.title = title
-        if description is not None:
-            appointment.description = description
-        if start_time is not None:
-            appointment.start_time = start_time
-        if duration_minutes is not None:
-            appointment.duration_minutes = duration_minutes
-        if status is not None:
-            appointment.status = status
+        if appointment.creator_id != current_user.id and not current_user.is_admin:
+            raise PermissionError("Not authorized to update this appointment")
             
-        await session.commit()
-        await session.refresh(appointment)
+        # Add status transition validation
+        valid_transitions = {
+            AppointmentStatus.SCHEDULED: [AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED],
+            AppointmentStatus.CONFIRMED: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+            AppointmentStatus.CANCELLED: [],
+            AppointmentStatus.COMPLETED: [],
+            AppointmentStatus.DECLINED: []
+        }
+        
+        if new_status not in valid_transitions[appointment.status]:
+            raise ValueError(f"Invalid status transition from {appointment.status} to {new_status}")
+            
+        appointment.status = new_status
+        await info.context.session.commit()
         return appointment
 
     @strawberry.mutation
-    async def delete_appointment(self, info: Info, id: UUID) -> bool:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
+    async def add_service_history(
+        self,
+        info: Info[CustomContext, None],
+        client_id: UUID,
+        service_type: ServiceType,
+        notes: Optional[str]
+    ) -> ServiceHistoryType:
+        current_user = await check_auth(info)
         
-        if not current_user:
-            raise GraphQLError("Authentication required")
-        
-        result = await session.execute(
-            select(models.Appointment).where(
-                models.Appointment.id == id,
-                models.Appointment.creator_id == current_user.id
-            )
+        service_history = ServiceHistory(
+            id=uuid4(),
+            client_id=client_id,
+            service_type=service_type.value,
+            provider_name=f"{current_user.first_name} {current_user.last_name}",
+            date_of_service=datetime.now(UTC),
+            notes=notes
         )
-        appointment = result.scalar_one_or_none()
         
-        if not appointment:
-            raise GraphQLError("Appointment not found or you don't have permission to delete it")
-        
-        await session.delete(appointment)
-        await session.commit()
-        return True
+        info.context.session.add(service_history)
+        await info.context.session.commit()
+        return service_history
 
-    @strawberry.mutation
-    async def update_appointment_attendance(self, info: Info, id: UUID, attendee_ids: List[UUID]) -> Appointment:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-        
-        result = await session.execute(
-            select(models.Appointment).where(
-                models.Appointment.id == id,
-                models.Appointment.creator_id == current_user.id
-            )
-        )
-        appointment = result.scalar_one_or_none()
-        
-        if not appointment:
-            raise GraphQLError("Appointment not found or you don't have permission to update it")
-        
-        result = await session.execute(
-            select(models.User).where(models.User.id.in_(attendee_ids))
-        )
-        attendees = result.scalars().all()
-        if len(attendees) != len(attendee_ids):
-            raise GraphQLError("One or more attendees not found")
-        
-        appointment.attendees = attendees
-        await session.commit()
-        await session.refresh(appointment)
-        return appointment
-
-    @strawberry.mutation
-    async def update_appointment_status(self, info: Info, id: UUID, status: AppointmentStatus) -> Appointment:
-        session = info.context.session
-        current_user = await info.context.get_current_user()
-        
-        if not current_user:
-            raise GraphQLError("Authentication required")
-        
-        result = await session.execute(
-            select(models.Appointment).where(
-                models.Appointment.id == id,
-                or_(
-                    models.Appointment.creator_id == current_user.id,
-                    models.Appointment.attendees.any(id=current_user.id)
-                )
-            )
-        )
-        appointment = result.scalar_one_or_none()
-        
-        if not appointment:
-            raise GraphQLError("Appointment not found or you're not a participant")
-        
-        if status == AppointmentStatus.CANCELLED and appointment.creator_id != current_user.id:
-            raise GraphQLError("Only the creator can cancel an appointment")
-        
-        if status == AppointmentStatus.DECLINED and current_user.id not in [a.id for a in appointment.attendees]:
-            raise GraphQLError("Only attendees can decline an appointment")
-        
-        appointment.status = status
-        await session.commit()
-        await session.refresh(appointment)
-        return appointment
-
-    @strawberry.mutation
-    async def delete_user(self, info: Info, user_id: Optional[UUID] = None, username: Optional[str] = None) -> bool:
-        if not user_id and not username:
-            raise GraphQLError("Must provide either user_id or username")
-            
-        session = info.context.session
-        
-        query = select(models.User)
-        if user_id:
-            query = query.where(models.User.id == user_id)
-        else:
-            query = query.where(models.User.username == username)
-            
-        result = await session.execute(query)
-        user = result.scalar_one_or_none()
-        
-        if not user:
-            return True  # Already deleted
-            
-        result = await session.execute(
-            select(models.Client).where(models.Client.user_id == user.id)
-        )
-        client = result.scalar_one_or_none()
-        if client:
-            await session.delete(client)
-            
-        result = await session.execute(
-            select(models.Appointment).where(models.Appointment.creator_id == user.id)
-        )
-        appointments = result.scalars().all()
-        for appointment in appointments:
-            await session.delete(appointment)
-            
-        await session.delete(user)
-        await session.commit()
-        return True
-
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation
+)
