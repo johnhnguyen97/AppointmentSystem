@@ -7,7 +7,7 @@ from sqlalchemy import select, and_, or_, func, text
 from strawberry.types import Info
 
 from src.main.models import User, Appointment, Client, ServiceHistory, ServiceType, AppointmentStatus
-from src.main.auth import check_auth, get_password_hash
+from src.main.auth import check_auth, get_password_hash, verify_password, create_access_token
 from src.main.graphql_context import CustomContext
 
 @strawberry.input
@@ -27,11 +27,16 @@ class UpdateUserInput:
     enabled: Optional[bool] = None
 
 @strawberry.input
+class LoginInput:
+    username: str
+    password: str
+
+@strawberry.input
 class CreateClientInput:
     phone: str
     service: ServiceType
+    status: str = "active"
     notes: Optional[str] = None
-    user_id: UUID
 
 @strawberry.input
 class UpdateClientInput:
@@ -49,6 +54,11 @@ class UserType:
     last_name: str
     enabled: bool
     is_admin: bool
+
+@strawberry.type
+class LoginResponse:
+    token: str
+    user: UserType
 
 @strawberry.type
 class ClientType:
@@ -113,6 +123,15 @@ class Query:
         result = await info.context.session.execute(stmt)
         client = result.scalars().first()
         return client
+
+    @strawberry.field
+    async def clients(self, info: Info[CustomContext, None]) -> List[ClientType]:
+        current_user = await check_auth(info)
+        stmt = select(Client)
+        if not current_user.is_admin:
+            stmt = stmt.where(Client.user_id == current_user.id)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
 
     @strawberry.field
     async def appointments(self, info: Info[CustomContext, None]) -> List[AppointmentType]:
@@ -216,28 +235,39 @@ class Mutation:
         return user
 
     @strawberry.mutation
+    async def login(
+        self,
+        info: Info[CustomContext, None],
+        input: LoginInput
+    ) -> LoginResponse:
+        stmt = select(User).where(User.username == input.username)
+        result = await info.context.session.execute(stmt)
+        user = result.scalars().first()
+
+        if not user or not verify_password(input.password, user.password):
+            raise ValueError("Invalid username or password")
+
+        if not user.enabled:
+            raise ValueError("User account is disabled")
+
+        token = create_access_token(user.id)
+        return LoginResponse(token=token, user=user)
+
+    @strawberry.mutation
     async def create_client(
         self,
         info: Info[CustomContext, None],
         input: CreateClientInput
     ) -> ClientType:
         current_user = await check_auth(info)
-        if not current_user.is_admin:
-            raise PermissionError("Only administrators can create clients")
-
-        # Verify user exists
-        stmt = select(User).where(User.id == input.user_id)
-        result = await info.context.session.execute(stmt)
-        if not result.scalars().first():
-            raise ValueError("User not found")
 
         client = Client(
             id=uuid4(),
             phone=input.phone,
-            service=input.service.value,
-            status="active",
+            service=input.service.name,
+            status=input.status,
             notes=input.notes,
-            user_id=input.user_id
+            user_id=current_user.id
         )
         info.context.session.add(client)
         await info.context.session.commit()
@@ -328,11 +358,11 @@ class Mutation:
     async def update_appointment_status(
         self,
         info: Info[CustomContext, None],
-        appointment_id: UUID,
-        new_status: AppointmentStatus
+        id: UUID,
+        status: AppointmentStatus
     ) -> AppointmentType:
         current_user = await check_auth(info)
-        stmt = select(Appointment).where(Appointment.id == appointment_id)
+        stmt = select(Appointment).where(Appointment.id == id)
         result = await info.context.session.execute(stmt)
         appointment = result.scalars().first()
         
@@ -351,10 +381,10 @@ class Mutation:
             AppointmentStatus.DECLINED: []
         }
         
-        if new_status not in valid_transitions[appointment.status]:
-            raise ValueError(f"Invalid status transition from {appointment.status} to {new_status}")
+        if status not in valid_transitions[appointment.status]:
+            raise ValueError(f"Invalid status transition from {appointment.status} to {status}")
             
-        appointment.status = new_status
+        appointment.status = status
         await info.context.session.commit()
         return appointment
 

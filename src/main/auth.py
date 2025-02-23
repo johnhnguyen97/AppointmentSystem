@@ -33,7 +33,7 @@ def create_access_token(subject: str | UUID) -> str:
     encoded_jwt = jwt.encode(
         to_encode,
         settings.JWT_SECRET_KEY,
-        settings.ALGORITHM
+        settings.JWT_ALGORITHM
     )
     return encoded_jwt
 
@@ -61,7 +61,7 @@ def decode_token(token: str) -> Optional[UUID]:
         payload = jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            algorithms=[settings.JWT_ALGORITHM]
         )
         return UUID(payload.get('sub'))
     except jwt.ExpiredSignatureError:

@@ -1,18 +1,17 @@
-# TODOs
+# TODO Items
 
-## Completed
-- [x] Fixed User model timestamp handling
-  - Updated updated_at to use server_default
-  - Added migration to ensure database consistency
-  - Fixed NULL value violations
+## Test Framework Cleanup
 
-## Pending
-- [ ] Add validation tests for User model timestamp behavior
-- [ ] Consider adding similar timestamp handling to other models for consistency
-- [ ] Add documentation for timestamp behavior in models
-- [ ] Review and update GraphQL schema to reflect timestamp handling
+### pytest-asyncio Warnings
+- [ ] Remove `asyncio_fixture_scope` from pytest.ini once new version of pytest-asyncio is released
+- [ ] Update event_loop fixture in conftest.py to use `loop_scope` argument instead of redefining the fixture
+- [ ] Ensure proper event loop cleanup in tests by:
+  1. Properly closing loop in event_loop fixture after yielding
+  2. Avoiding overlapping event_loop fixture scopes
+  3. Not modifying event loop in async fixtures or tests
 
-## Future Improvements
-- [ ] Consider adding created_by/updated_by tracking
-- [ ] Add audit logging for important model changes
-- [ ] Implement soft delete functionality
+## Code Improvements
+- [ ] Add validation for service types in Client model
+- [ ] Add constraints for appointment duration and scheduling
+- [ ] Implement proper error handling for cascading deletes
+- [ ] Add indexes for frequently queried columns
