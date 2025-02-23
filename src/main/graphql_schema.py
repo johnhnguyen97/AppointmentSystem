@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta, UTC
 from typing import List, Optional
-from uuid import UUID, uuid4
 
 import strawberry
 from sqlalchemy import select, and_, or_, func, text
 from strawberry.types import Info
+from nanoid import generate
 
-from src.main.models import User, Appointment, Client, ServiceHistory, ServiceType, AppointmentStatus
+from src.main.models import (
+    User, Appointment, Client, ServiceHistory, ServiceType, AppointmentStatus,
+    ClientCategory, ClientStatus, ServicePackage, calculate_appointment_cost
+)
 from src.main.auth import check_auth, get_password_hash, verify_password, create_access_token
 from src.main.graphql_context import CustomContext
 
@@ -35,19 +38,19 @@ class LoginInput:
 class CreateClientInput:
     phone: str
     service: ServiceType
-    status: str = "active"
+    status: ClientStatus = ClientStatus.ACTIVE
     notes: Optional[str] = None
 
 @strawberry.input
 class UpdateClientInput:
     phone: Optional[str] = None
     service: Optional[ServiceType] = None
-    status: Optional[str] = None
+    status: Optional[ClientStatus] = None
     notes: Optional[str] = None
 
 @strawberry.type
 class UserType:
-    id: UUID
+    id: str
     username: str
     email: str
     first_name: str
@@ -61,13 +64,57 @@ class LoginResponse:
     user: UserType
 
 @strawberry.type
-class ClientType:
-    id: UUID
-    phone: str
-    service: str
-    status: str
+class ServicePackageType:
+    id: str
+    client_id: str
+    service_type: ServiceType
+    total_sessions: int
+    sessions_remaining: int
+    purchase_date: datetime
+    expiry_date: datetime
+    package_cost: float
+    minimum_interval: int
+    last_session_date: Optional[datetime]
+    average_satisfaction: Optional[float]
+
+    @strawberry.field
+    def can_use_session(self) -> bool:
+        if self.sessions_remaining <= 0:
+            return False
+        if self.last_session_date:
+            min_next_date = self.last_session_date + timedelta(days=self.minimum_interval)
+            if datetime.now(UTC) < min_next_date:
+                return False
+        return True
+
+@strawberry.type
+class ServiceHistoryType:
+    id: str
+    client_id: str
+    service_type: ServiceType
+    provider_name: str
+    date_of_service: datetime
     notes: Optional[str]
-    user_id: UUID
+    service_cost: float
+    loyalty_points_earned: int
+    points_redeemed: int
+    satisfaction_rating: Optional[int]
+    feedback: Optional[str]
+    service_duration: int
+
+@strawberry.type
+class ClientType:
+    id: str
+    phone: str
+    service: ServiceType
+    status: ClientStatus
+    notes: Optional[str]
+    category: ClientCategory
+    user_id: str
+    loyalty_points: int
+    total_spent: float
+    visit_count: int
+    last_visit: Optional[datetime]
     
     @strawberry.field
     async def user(self, info: Info[CustomContext, None]) -> UserType:
@@ -75,15 +122,32 @@ class ClientType:
         result = await info.context.session.execute(stmt)
         return result.scalars().first()
 
+    @strawberry.field
+    async def service_packages(self, info: Info[CustomContext, None]) -> List[ServicePackageType]:
+        stmt = select(ServicePackage).where(ServicePackage.client_id == self.id)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
+
+    @strawberry.field
+    async def service_history(self, info: Info[CustomContext, None]) -> List[ServiceHistoryType]:
+        stmt = select(ServiceHistory).where(ServiceHistory.client_id == self.id)
+        result = await info.context.session.execute(stmt)
+        return list(result.scalars().all())
+
 @strawberry.type
 class AppointmentType:
-    id: UUID
+    id: str
     title: str
     description: Optional[str]
     start_time: datetime
     duration_minutes: int
     status: AppointmentStatus
-    creator_id: UUID
+    service_type: ServiceType
+    creator_id: str
+
+    @strawberry.field
+    def estimated_cost(self) -> float:
+        return calculate_appointment_cost(self.service_type, self.duration_minutes)
 
     @strawberry.field
     async def creator(self, info: Info[CustomContext, None]) -> UserType:
@@ -98,18 +162,9 @@ class AppointmentType:
         return list(result.scalars().all())
 
 @strawberry.type
-class ServiceHistoryType:
-    id: UUID
-    client_id: UUID
-    service_type: str
-    provider_name: str
-    date_of_service: datetime
-    notes: Optional[str]
-
-@strawberry.type
 class Query:
     @strawberry.field
-    async def user(self, info: Info[CustomContext, None], id: UUID) -> Optional[UserType]:
+    async def user(self, info: Info[CustomContext, None], id: str) -> Optional[UserType]:
         await check_auth(info)
         stmt = select(User).where(User.id == id)
         result = await info.context.session.execute(stmt)
@@ -117,12 +172,21 @@ class Query:
         return user
 
     @strawberry.field
-    async def client(self, info: Info[CustomContext, None], id: UUID) -> Optional[ClientType]:
+    async def client(self, info: Info[CustomContext, None], id: str) -> Optional[ClientType]:
         await check_auth(info)
         stmt = select(Client).where(Client.id == id)
         result = await info.context.session.execute(stmt)
         client = result.scalars().first()
         return client
+
+    @strawberry.field
+    async def service_package(
+        self, info: Info[CustomContext, None], id: str
+    ) -> Optional[ServicePackageType]:
+        await check_auth(info)
+        stmt = select(ServicePackage).where(ServicePackage.id == id)
+        result = await info.context.session.execute(stmt)
+        return result.scalars().first()
 
     @strawberry.field
     async def clients(self, info: Info[CustomContext, None]) -> List[ClientType]:
@@ -155,15 +219,6 @@ class Query:
         result = await info.context.session.execute(stmt)
         return list(result.scalars().all())
 
-    @strawberry.field
-    async def clientServiceHistory(
-        self, info: Info[CustomContext, None], client_id: UUID
-    ) -> List[ServiceHistoryType]:
-        current_user = await check_auth(info)
-        stmt = select(ServiceHistory).where(ServiceHistory.client_id == client_id)
-        result = await info.context.session.execute(stmt)
-        return list(result.scalars().all())
-
 @strawberry.type
 class Mutation:
     @strawberry.mutation
@@ -176,7 +231,6 @@ class Mutation:
         if not current_user.is_admin:
             raise PermissionError("Only administrators can create users")
 
-        # Check if username or email already exists
         stmt = select(User).where(
             or_(User.username == input.username, User.email == input.email)
         )
@@ -185,7 +239,6 @@ class Mutation:
             raise ValueError("Username or email already exists")
 
         user = User(
-            id=uuid4(),
             username=input.username,
             email=input.email,
             password=get_password_hash(input.password),
@@ -198,10 +251,39 @@ class Mutation:
         return user
 
     @strawberry.mutation
+    async def create_service_package(
+        self,
+        info: Info[CustomContext, None],
+        client_id: str,
+        service_type: ServiceType,
+        total_sessions: int,
+        expiry_date: datetime,
+        package_cost: float,
+        minimum_interval: Optional[int] = 1
+    ) -> ServicePackageType:
+        current_user = await check_auth(info)
+        if not current_user.is_admin:
+            raise PermissionError("Only administrators can create service packages")
+
+        package = ServicePackage(
+            client_id=client_id,
+            service_type=service_type,
+            total_sessions=total_sessions,
+            sessions_remaining=total_sessions,
+            purchase_date=datetime.now(UTC),
+            expiry_date=expiry_date,
+            package_cost=package_cost,
+            minimum_interval=minimum_interval
+        )
+        info.context.session.add(package)
+        await info.context.session.commit()
+        return package
+
+    @strawberry.mutation
     async def update_user(
         self,
         info: Info[CustomContext, None],
-        id: UUID,
+        id: str,
         input: UpdateUserInput
     ) -> UserType:
         current_user = await check_auth(info)
@@ -215,7 +297,6 @@ class Mutation:
             raise ValueError("User not found")
 
         if input.email is not None:
-            # Check if email is already used by another user
             stmt = select(User).where(
                 and_(User.email == input.email, User.id != id)
             )
@@ -262,11 +343,11 @@ class Mutation:
         current_user = await check_auth(info)
 
         client = Client(
-            id=uuid4(),
             phone=input.phone,
             service=input.service.name,
-            status=input.status,
+            status=input.status.value,
             notes=input.notes,
+            category=ClientCategory.NEW,
             user_id=current_user.id
         )
         info.context.session.add(client)
@@ -277,7 +358,7 @@ class Mutation:
     async def update_client(
         self,
         info: Info[CustomContext, None],
-        id: UUID,
+        id: str,
         input: UpdateClientInput
     ) -> ClientType:
         current_user = await check_auth(info)
@@ -296,7 +377,7 @@ class Mutation:
         if input.service is not None:
             client.service = input.service.value
         if input.status is not None:
-            client.status = input.status
+            client.status = input.status.value
         if input.notes is not None:
             client.notes = input.notes
 
@@ -308,38 +389,25 @@ class Mutation:
         self,
         info: Info[CustomContext, None],
         title: str,
+        service_type: ServiceType,
         description: Optional[str],
         start_time: str,
         duration_minutes: int,
-        attendee_ids: List[UUID],
+        attendee_ids: List[str],
     ) -> AppointmentType:
         current_user = await check_auth(info)
         
         # Parse datetime from ISO string
         start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-        # Calculate end time
-        end_time = start_time + timedelta(minutes=duration_minutes)
         
-        # Check for overlapping appointments using SQL
-        overlap_stmt = select(Appointment).where(
-            and_(
-                Appointment.start_time < end_time,
-                text("appointments.start_time + (appointments.duration_minutes || ' minutes')::interval > :start_time")
-            )
-        ).params(start_time=start_time)
-        
-        result = await info.context.session.execute(overlap_stmt)
-        if result.scalars().first():
-            raise ValueError("Appointment overlaps with existing appointment")
-
         # Create new appointment
         appointment = Appointment(
-            id=uuid4(),
             title=title,
             description=description,
             start_time=start_time,
             duration_minutes=duration_minutes,
             creator_id=current_user.id,
+            service_type=service_type,
             status=AppointmentStatus.SCHEDULED
         )
 
@@ -358,7 +426,7 @@ class Mutation:
     async def update_appointment_status(
         self,
         info: Info[CustomContext, None],
-        id: UUID,
+        id: str,
         status: AppointmentStatus
     ) -> AppointmentType:
         current_user = await check_auth(info)
@@ -392,26 +460,44 @@ class Mutation:
     async def add_service_history(
         self,
         info: Info[CustomContext, None],
-        client_id: UUID,
+        client_id: str,
         service_type: ServiceType,
-        notes: Optional[str]
+        service_cost: float,
+        service_duration: int,
+        notes: Optional[str] = None,
+        satisfaction_rating: Optional[int] = None,
+        feedback: Optional[str] = None,
+        package_id: Optional[str] = None
     ) -> ServiceHistoryType:
         current_user = await check_auth(info)
         
+        # Calculate loyalty points
+        loyalty_points = ServiceType.get_loyalty_points(service_type)
+        
         service_history = ServiceHistory(
-            id=uuid4(),
             client_id=client_id,
             service_type=service_type.value,
             provider_name=f"{current_user.first_name} {current_user.last_name}",
             date_of_service=datetime.now(UTC),
-            notes=notes
+            notes=notes,
+            service_cost=service_cost,
+            loyalty_points_earned=loyalty_points,
+            service_duration=service_duration,
+            satisfaction_rating=satisfaction_rating,
+            feedback=feedback,
+            package_id=package_id
         )
+        
+        if package_id:
+            stmt = select(ServicePackage).where(ServicePackage.id == package_id)
+            result = await info.context.session.execute(stmt)
+            package = result.scalars().first()
+            if not package or not package.can_use_session():
+                raise ValueError("Invalid package or cannot use session at this time")
+            package.use_session()
         
         info.context.session.add(service_history)
         await info.context.session.commit()
         return service_history
 
-schema = strawberry.Schema(
-    query=Query,
-    mutation=Mutation
-)
+schema = strawberry.Schema(query=Query, mutation=Mutation)

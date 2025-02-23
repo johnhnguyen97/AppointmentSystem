@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, UTC
 from typing import TYPE_CHECKING, Optional
-from uuid import UUID
 
 import jwt
 from fastapi import HTTPException, Security
@@ -22,7 +21,7 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(subject: str | UUID) -> str:
+def create_access_token(subject: str) -> str:
     expire = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
@@ -56,14 +55,14 @@ async def check_auth(info: Info['CustomContext', None]):
         
     return current_user
 
-def decode_token(token: str) -> Optional[UUID]:
+def decode_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM]
         )
-        return UUID(payload.get('sub'))
+        return str(payload.get('sub'))
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=401,
