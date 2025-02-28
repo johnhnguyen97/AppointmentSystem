@@ -67,6 +67,7 @@ AppointmentSystem/
 - PostgreSQL
 - npm (Node.js package manager)
 - pip (Python package manager)
+- Bitwarden CLI (for credential management)
 
 ### Installation
 
@@ -89,7 +90,7 @@ pip install -r requirements.txt
 pip install -r test-requirements.txt  # For development/testing
 ```
 
-4. Set up environment variables
+4. Set up environment variables and Bitwarden
 ```bash
 # In api directory
 cp .env.example .env
@@ -99,6 +100,19 @@ cp .env.example .env
 cp .env.example .env
 # Edit .env with Python service configuration
 ```
+
+For Bitwarden setup, run the provided PowerShell script:
+```powershell
+# Run the Bitwarden setup script
+./scripts/setup_bitwarden.ps1
+```
+
+This script will:
+- Check if Bitwarden CLI is installed
+- Guide you through setting up Bitwarden API keys
+- Create necessary vault items for the project
+
+See [Bitwarden Integration](docs/bitwarden_integration.md) for detailed instructions on how Bitwarden is used for credential management.
 
 5. Start the development servers
 ```bash
@@ -160,6 +174,7 @@ pytest
 - [ ] Implement service history tracking
 - [ ] Add loyalty points system
 - [ ] Create client referral system
+- [x] Implement secure credential management with Bitwarden
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
