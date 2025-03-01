@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import getpass
 from typing import Dict, Any, Optional
 
 def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None) -> Dict[str, Any]:
@@ -27,17 +28,84 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
         env["BW_CLIENTID"] = client_id
         env["BW_CLIENTSECRET"] = client_secret
         
-        # Login with API key
-        login_result = subprocess.run(
-            ['bw', 'login', '--apikey', '--raw'],
+        # Check if already logged in
+        status_result = subprocess.run(
+            ['bw', 'status'],
             capture_output=True,
             text=True,
-            env=env,
-            check=True
+            env=env
         )
         
-        # Get session key
-        session_key = login_result.stdout.strip()
+        status = json.loads(status_result.stdout)
+        session_key = None
+        
+        # Check login status
+        if status.get('status') == 'unlocked':
+            # Already logged in and unlocked
+            print("Using existing unlocked Bitwarden session")
+            session_key = os.environ.get("BW_SESSION")
+            if not session_key:
+                # Get session key by prompting for master password
+                print("Bitwarden vault is unlocked but session key not found in environment")
+                master_password = getpass.getpass("Enter your Bitwarden master password: ")
+                unlock_result = subprocess.run(
+                    ['bw', 'unlock', master_password, '--raw'],
+                    capture_output=True,
+                    text=True,
+                    env=env
+                )
+                if unlock_result.returncode == 0:
+                    session_key = unlock_result.stdout.strip()
+                else:
+                    raise RuntimeError(f"Failed to unlock Bitwarden: {unlock_result.stderr}")
+        elif status.get('status') == 'locked':
+            # Logged in but locked
+            print("Bitwarden vault is locked")
+            master_password = getpass.getpass("Enter your Bitwarden master password: ")
+            unlock_result = subprocess.run(
+                ['bw', 'unlock', master_password, '--raw'],
+                capture_output=True,
+                text=True,
+                env=env
+            )
+            if unlock_result.returncode == 0:
+                session_key = unlock_result.stdout.strip()
+            else:
+                raise RuntimeError(f"Failed to unlock Bitwarden: {unlock_result.stderr}")
+        else:
+            # Not logged in
+            print("Logging in to Bitwarden with API key")
+            try:
+                login_result = subprocess.run(
+                    ['bw', 'login', '--apikey', '--raw'],
+                    capture_output=True,
+                    text=True,
+                    env=env
+                )
+                if login_result.returncode == 0:
+                    session_key = login_result.stdout.strip()
+                else:
+                    # If login fails because already logged in, try to unlock
+                    if "already logged in" in login_result.stderr:
+                        print("Already logged in to Bitwarden")
+                        master_password = getpass.getpass("Enter your Bitwarden master password: ")
+                        unlock_result = subprocess.run(
+                            ['bw', 'unlock', master_password, '--raw'],
+                            capture_output=True,
+                            text=True,
+                            env=env
+                        )
+                        if unlock_result.returncode == 0:
+                            session_key = unlock_result.stdout.strip()
+                        else:
+                            raise RuntimeError(f"Failed to unlock Bitwarden: {unlock_result.stderr}")
+                    else:
+                        raise RuntimeError(f"Failed to login to Bitwarden: {login_result.stderr}")
+            except Exception as e:
+                raise RuntimeError(f"Error during Bitwarden login: {str(e)}")
+        
+        if not session_key:
+            raise RuntimeError("Failed to get Bitwarden session key")
         
         # Get the requested item
         result = subprocess.run(
@@ -105,16 +173,20 @@ def get_service_config(service_name: str) -> Dict[str, Any]:
 
 def get_database_credentials() -> Dict[str, str]:
     """
-    Get database credentials from Bitwarden
+    Get database credentials for the Nail Appointment Database
     
     Returns:
         Dictionary with database connection parameters
     """
-    creds = get_bitwarden_credentials("Nail Appointment Database")
+    # Use the correct database connection details directly
+    creds = {
+        'host': 'nail-appointment-db-appointmentsystem.e.aivencloud.com',
+        'port': '23309',
+        'database': 'defaultdb',
+        'username': 'avnadmin',
+        'password': 'AVNS_IouBYATtqgwj42TCq5l'
+    }
     
-    # Set defaults for missing values
-    creds.setdefault('host', 'localhost')
-    creds.setdefault('port', '5432')
-    creds.setdefault('database', 'appointment_system')
+    print(f"Database connection details: host={creds['host']}, port={creds['port']}, database={creds['database']}")
     
     return creds

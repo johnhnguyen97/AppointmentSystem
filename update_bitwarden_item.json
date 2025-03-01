@@ -1,0 +1,30 @@
+{
+  "name": "Nail Appointment Database",
+  "notes": "PostgreSQL database for the Appointment System application",
+  "login": {
+    "username": "avnadmin",
+    "password": "AVNS_IouBYATtqgwj42TCq5l",
+    "uris": [
+      {
+        "uri": "postgres://avnadmin:AVNS_IouBYATtqgwj42TCq5l@nail-appointment-db-appointmentsystem.e.aivencloud.com:23309/defaultdb?sslmode=require"
+      }
+    ]
+  },
+  "fields": [
+    {
+      "name": "host",
+      "value": "nail-appointment-db-appointmentsystem.e.aivencloud.com",
+      "type": 0
+    },
+    {
+      "name": "port",
+      "value": "23309",
+      "type": 0
+    },
+    {
+      "name": "database",
+      "value": "defaultdb",
+      "type": 0
+    }
+  ]
+}
