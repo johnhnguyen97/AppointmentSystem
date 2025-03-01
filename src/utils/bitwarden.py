@@ -2,7 +2,12 @@ import json
 import os
 import subprocess
 import getpass
+import colorama
+from colorama import Fore, Style
 from typing import Dict, Any, Optional
+
+# Initialize colorama for Windows
+colorama.init()
 
 def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None) -> Dict[str, Any]:
     """
@@ -178,13 +183,25 @@ def get_database_credentials() -> Dict[str, str]:
     Returns:
         Dictionary with database connection parameters
     """
-    # Use the correct database connection details directly
+    # Try to get credentials from environment variables first
+    host = os.environ.get("DB_HOST", "nail-appointment-db-appointmentsystem.e.aivencloud.com")
+    port = os.environ.get("DB_PORT", "23309")
+    database = os.environ.get("DB_NAME", "defaultdb")
+    username = os.environ.get("DB_USER", "avnadmin")
+    
+    # For the password, we should only use environment variable and not hardcode it
+    password = os.environ.get("DB_PASSWORD")
+    if not password:
+        # If password is not in environment variables, prompt the user
+        print(f"{Fore.YELLOW}Database password not found in environment variables.{Style.RESET_ALL}")
+        password = getpass.getpass("Enter database password: ")
+    
     creds = {
-        'host': 'nail-appointment-db-appointmentsystem.e.aivencloud.com',
-        'port': '23309',
-        'database': 'defaultdb',
-        'username': 'avnadmin',
-        'password': 'AVNS_IouBYATtqgwj42TCq5l'
+        'host': host,
+        'port': port,
+        'database': database,
+        'username': username,
+        'password': password
     }
     
     print(f"Database connection details: host={creds['host']}, port={creds['port']}, database={creds['database']}")

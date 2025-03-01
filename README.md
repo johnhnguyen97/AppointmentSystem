@@ -91,14 +91,30 @@ pip install -r test-requirements.txt  # For development/testing
 ```
 
 4. Set up environment variables and Bitwarden
-```bash
-# In api directory
-cp .env.example .env
-# Edit .env with Node.js API configuration
 
-# In service directory
-cp .env.example .env
-# Edit .env with Python service configuration
+Run the provided PowerShell script to set up your environment variables:
+```powershell
+# Run the environment setup script
+./setup_env.ps1
+```
+
+This script will:
+- Create a `.env` file based on the `.env.example` template
+- Prompt you for your database password (securely)
+- Optionally set up Bitwarden API credentials
+
+Alternatively, you can manually create a `.env` file with the following variables:
+```
+# Database connection details
+DB_HOST=nail-appointment-db-appointmentsystem.e.aivencloud.com
+DB_PORT=23309
+DB_NAME=defaultdb
+DB_USER=avnadmin
+DB_PASSWORD=your_password_here
+
+# Bitwarden API credentials
+BW_CLIENTID=your_client_id_here
+BW_CLIENTSECRET=your_client_secret_here
 ```
 
 For Bitwarden setup, run the provided PowerShell script:
@@ -141,6 +157,19 @@ python -m src.server
 - service_history: Historical service records
 
 ## Testing
+
+### Database Connection Test
+To test the database connection:
+```bash
+python -m src.test.db_connection_test
+```
+
+This script will:
+- Use the database credentials from your environment variables
+- Connect to the PostgreSQL database
+- Execute a simple query to verify the connection
+
+If you haven't set the `DB_PASSWORD` environment variable, the script will prompt you to enter it.
 
 ### API Tests
 ```bash
