@@ -184,17 +184,43 @@ def get_database_credentials() -> Dict[str, str]:
         Dictionary with database connection parameters
     """
     # Try to get credentials from environment variables first
-    host = os.environ.get("DB_HOST", "nail-appointment-db-appointmentsystem.e.aivencloud.com")
-    port = os.environ.get("DB_PORT", "23309")
-    database = os.environ.get("DB_NAME", "defaultdb")
-    username = os.environ.get("DB_USER", "avnadmin")
+    host = os.environ.get("DB_HOST")
+    port = os.environ.get("DB_PORT")
+    database = os.environ.get("DB_NAME")
+    username = os.environ.get("DB_USER")
     
     # For the password, we should only use environment variable and not hardcode it
     password = os.environ.get("DB_PASSWORD")
+    
+    # If any required credentials are missing, try to get them from Bitwarden
+    if not all([host, port, database, username, password]):
+        try:
+            # Try to get credentials from Bitwarden
+            bw_creds = get_bitwarden_credentials("Nail Appointment Database")
+            
+            # Use values from Bitwarden if available, otherwise keep environment variables
+            host = host or bw_creds.get('host')
+            port = port or bw_creds.get('port')
+            database = database or bw_creds.get('database')
+            username = username or bw_creds.get('username')
+            password = password or bw_creds.get('password')
+        except Exception as e:
+            print(f"{Fore.YELLOW}Failed to get credentials from Bitwarden: {str(e)}{Style.RESET_ALL}")
+    
+    # If password is still not available, prompt the user
     if not password:
-        # If password is not in environment variables, prompt the user
-        print(f"{Fore.YELLOW}Database password not found in environment variables.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Database password not found in environment variables or Bitwarden.{Style.RESET_ALL}")
         password = getpass.getpass("Enter database password: ")
+    
+    # If any required credentials are still missing, raise an error
+    if not all([host, port, database, username, password]):
+        missing = []
+        if not host: missing.append("host")
+        if not port: missing.append("port")
+        if not database: missing.append("database")
+        if not username: missing.append("username")
+        if not password: missing.append("password")
+        raise ValueError(f"Missing required database credentials: {', '.join(missing)}")
     
     creds = {
         'host': host,
@@ -204,6 +230,7 @@ def get_database_credentials() -> Dict[str, str]:
         'password': password
     }
     
+    # Only log non-sensitive information
     print(f"Database connection details: host={creds['host']}, port={creds['port']}, database={creds['database']}")
     
     return creds

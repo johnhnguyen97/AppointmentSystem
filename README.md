@@ -106,11 +106,11 @@ This script will:
 Alternatively, you can manually create a `.env` file with the following variables:
 ```
 # Database connection details
-DB_HOST=nail-appointment-db-appointmentsystem.e.aivencloud.com
-DB_PORT=23309
-DB_NAME=defaultdb
-DB_USER=avnadmin
-DB_PASSWORD=your_password_here
+DB_HOST=your_db_host_here
+DB_PORT=your_db_port_here
+DB_NAME=your_db_name_here
+DB_USER=your_db_username_here
+DB_PASSWORD=your_db_password_here
 
 # Bitwarden API credentials
 BW_CLIENTID=your_client_id_here
@@ -182,6 +182,41 @@ npm test
 cd service
 pytest
 ```
+
+## Security and Credential Management
+
+This project uses Bitwarden for secure credential management. This approach:
+
+1. Keeps sensitive information out of the codebase
+2. Centralizes credential management
+3. Provides an audit trail for credential access
+4. Makes it easier to update credentials without code changes
+
+### Security Best Practices
+
+- **NEVER commit API keys, passwords, or other credentials to the repository**
+- Use `.env` files for local development and ensure they are in `.gitignore`
+- Use environment variables in production environments
+- Avoid hardcoding sensitive values in code, even in configuration files
+- Use the provided setup scripts to configure your environment securely
+
+### Cleaning Up Sensitive Information
+
+If you accidentally commit sensitive information to the repository, use the provided cleanup script:
+
+```powershell
+./scripts/cleanup_secrets.ps1
+```
+
+This script will:
+1. Create a backup of your current repository state
+2. Remove the specified files from Git history
+3. Guide you through the process of updating the remote repository
+
+For more detailed information about security and credential management, see:
+- [Security Guidelines](docs/security_guidelines.md)
+- [Bitwarden Integration](docs/bitwarden_integration.md)
+- [GitHub's documentation on push protection](https://docs.github.com/code-security/secret-scanning/working-with-push-protection-from-the-command-line)
 
 ## Contributing
 1. Fork the repository

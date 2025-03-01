@@ -20,10 +20,10 @@ if (Test-Path ".env.example") {
     # Create .env file from scratch
     @"
 # Database connection details
-DB_HOST=nail-appointment-db-appointmentsystem.e.aivencloud.com
-DB_PORT=23309
-DB_NAME=defaultdb
-DB_USER=avnadmin
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
 DB_PASSWORD=
 
 # Bitwarden API credentials

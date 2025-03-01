@@ -186,7 +186,36 @@ To add new configuration values:
 
 ## Security Considerations
 
-- Never commit API keys or credentials to the repository
-- Set up environment variables in your development and production environments
-- Regularly rotate your Bitwarden API keys
+### Preventing Credential Leaks
+
+- **NEVER commit API keys, passwords, or other credentials to the repository**
+  - Use `.env` files for local development and ensure they are in `.gitignore`
+  - Use environment variables in production environments
+  - If you accidentally commit sensitive information, use the `scripts/cleanup_secrets.ps1` script to remove it from Git history
+
+- **Avoid hardcoding sensitive values in code**
+  - Even in configuration files, use environment variables or secure credential stores
+  - Use placeholder values in example files (like `.env.example`)
+
+- **Use the provided setup scripts**
+  - The `setup_env.ps1` script helps create a secure `.env` file
+  - The `scripts/setup_bitwarden.ps1` script configures Bitwarden integration safely
+
+### Credential Management Best Practices
+
+- Regularly rotate your Bitwarden API keys and database credentials
 - Use the principle of least privilege when setting up API access
+- Consider using a dedicated service account for API access in production
+- Implement proper access controls for your Bitwarden vault
+- Audit credential access regularly
+
+### GitHub Push Protection
+
+GitHub's push protection feature helps prevent accidental commits of secrets. If you encounter push protection errors:
+
+1. Remove the sensitive information from your current files
+2. Clean your Git history using the provided `scripts/cleanup_secrets.ps1` script
+3. Force push to update the remote repository
+4. If needed, use GitHub's UI to acknowledge any false positives
+
+For more information, see [GitHub's documentation on push protection](https://docs.github.com/code-security/secret-scanning/working-with-push-protection-from-the-command-line).
