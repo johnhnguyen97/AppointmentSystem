@@ -29,7 +29,7 @@ A comprehensive appointment management system with a Node.js backend API and Pyt
 ### Data Processing Service (Python)
 - Python 3.11+
 - SQLAlchemy (Async)
-- GraphQL
+- GraphQL with Strawberry
 - PostgreSQL
 - pytest for testing
 
@@ -58,6 +58,65 @@ AppointmentSystem/
 └── README.md            # Project documentation
 ```
 
+## GraphQL API
+
+The Appointment System includes a GraphQL API that provides a flexible and powerful way to interact with the system. The GraphQL API is built using Strawberry, a modern Python GraphQL library.
+
+### GraphQL Console (GraphiQL)
+
+The system includes GraphiQL, an in-browser IDE for exploring and testing the GraphQL API. To use the GraphQL console:
+
+1. Start the GraphQL server and open the console:
+```powershell
+.\scripts\start_graphql_console.ps1
+```
+
+2. This will start the server and open the GraphQL console in your default browser at:
+```
+http://127.0.0.1:8000/graphql
+```
+
+3. Use the console to explore the API schema, write queries and mutations, and view the results.
+
+For detailed information about using the GraphQL console, including authentication, example queries, and troubleshooting tips, see the [GraphQL Console Guide](docs/graphql_console_guide.md).
+
+### GraphQL Server Management
+
+The project includes several scripts for managing the GraphQL server:
+
+- **`scripts/start_server.ps1`**: Starts the GraphQL server
+- **`scripts/start_graphql_console.ps1`**: Starts the server (if needed) and opens the GraphQL console in your browser
+- **`scripts/reset_graphql_server.ps1`**: Stops any running GraphQL server processes and starts a new one
+- **`scripts/add_test_client.py`**: Adds a test client using the GraphQL API
+- **`scripts/fix_service_types.py`**: Fixes service type enum values in the database
+
+To reset the GraphQL server:
+```powershell
+.\scripts\reset_graphql_server.ps1
+```
+
+To add a test client:
+```powershell
+python .\scripts\add_test_client.py
+```
+
+If you encounter enum value errors, see the [Service Type Enum Fix](docs/service_type_enum_fix.md) documentation.
+
+### Programmatic API Access
+
+You can also interact with the GraphQL API programmatically using the provided Python script:
+
+```powershell
+python .\scripts\test_graphql_queries.py
+```
+
+This script demonstrates how to:
+- Authenticate with the API
+- Execute GraphQL queries and mutations
+- Handle responses and errors
+
+You can use this script as a starting point for integrating the GraphQL API into your own applications.
+
 ## Getting Started
 
 ### Prerequisites
@@ -68,6 +127,7 @@ AppointmentSystem/
 - npm (Node.js package manager)
 - pip (Python package manager)
 - Bitwarden CLI (for credential management)
+- DBeaver (for database management, optional)
 
 ### Installation
 
@@ -156,6 +216,69 @@ python -m src.server
 - service_packages: Package deals and tracking
 - service_history: Historical service records
 
+## Database Management
+
+### Database Scripts
+This project includes several PowerShell scripts for managing the database:
+
+- **`scripts/setup_database.ps1`**: Main script that resets the database and verifies the schema
+- **`scripts/reset_database.ps1`**: Drops all tables and recreates them using the initial schema
+- **`scripts/verify_schema.ps1`**: Verifies that the GraphQL schema and database schema are in sync
+- **`scripts/run_test_data.ps1`**: Populates the database with test data for development and testing
+- **`scripts/generate_test_data.py`**: Generates SQL statements with nanoid values for testing
+
+To reset the database and ensure everything is properly set up:
+```powershell
+.\scripts\setup_database.ps1
+```
+
+To populate the database with test data:
+```powershell
+.\scripts\run_test_data.ps1
+```
+
+For more information about these scripts, see the [Database Scripts README](scripts/README.md).
+
+### Test Data and GraphQL Integration
+This project includes comprehensive test data that can be loaded into the database for development and testing purposes. The test data includes:
+
+- Users with different roles (admin, regular users)
+- Clients in various categories (NEW, REGULAR, VIP, PREMIUM)
+- Service history with satisfaction ratings
+- Service packages with different parameters
+- Appointments with various statuses
+
+You can interact with this test data using both SQL and GraphQL:
+
+- **SQL**: Use the `client_test_data_fixed4.sql` script to directly populate the database
+- **GraphQL**: Use the examples in [Test Data GraphQL Documentation](docs/test_data_graphql.md) to query and mutate data
+
+The GraphQL documentation includes examples for:
+- Authentication and token management
+- Querying users, clients, appointments, and service records
+- Creating and updating records
+- Common queries for business analytics
+
+### DBeaver
+This project uses DBeaver for database management and visualization. DBeaver is a free, open-source database tool that supports PostgreSQL and many other database systems.
+
+To set up DBeaver for this project:
+1. Install DBeaver using Scoop: `scoop install extras/dbeaver`
+2. Run the automated setup script: `.\scripts\setup_dbeaver.ps1`
+3. For detailed instructions, see the [DBeaver Setup Guide](docs/dbeaver_setup.md)
+
+The setup script will:
+- Automatically retrieve database credentials from Bitwarden or environment variables
+- Generate connection profiles for Development, Testing, and Production environments
+- Provide instructions for importing the profiles into DBeaver
+
+DBeaver allows you to:
+- Browse and edit database tables
+- Execute SQL queries
+- Create ER diagrams
+- Export and import data
+- Generate database documentation
+
 ## Testing
 
 ### Database Connection Test
@@ -199,6 +322,7 @@ This project uses Bitwarden for secure credential management. This approach:
 - Use environment variables in production environments
 - Avoid hardcoding sensitive values in code, even in configuration files
 - Use the provided setup scripts to configure your environment securely
+- All password inputs in the system are hidden when typed for enhanced security
 
 ### Cleaning Up Sensitive Information
 
@@ -239,6 +363,10 @@ For more detailed information about security and credential management, see:
 - [ ] Add loyalty points system
 - [ ] Create client referral system
 - [x] Implement secure credential management with Bitwarden
+- [x] Set up GraphQL console and documentation
+- [ ] Add GraphQL subscriptions for real-time updates
+- [ ] Implement rate limiting for GraphQL queries
+- [ ] Add query complexity analysis
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
