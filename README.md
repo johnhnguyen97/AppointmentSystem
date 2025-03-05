@@ -6,7 +6,7 @@ A comprehensive appointment management system with a Node.js backend API and Pyt
 
 ### Core Features
 - [ ] User authentication and authorization
-- [ ] Appointment scheduling and tracking
+- [x] Appointment scheduling and tracking
 - [ ] Calendar view of appointments
 - [ ] Email notifications
 - [ ] User dashboard
@@ -80,6 +80,24 @@ http://127.0.0.1:8000/graphql
 
 For detailed information about using the GraphQL console, including authentication, example queries, and troubleshooting tips, see the [GraphQL Console Guide](docs/graphql_console_guide.md).
 
+### Client Appointment Creation
+
+The system now supports client-initiated appointment creation through the GraphQL API. This allows clients to schedule their own appointments without requiring staff intervention.
+
+For detailed information about this feature, including API usage, business rules, and error handling, see the [Client Appointment Creation Guide](docs/client_appointment_creation.md).
+
+To test the client appointment creation feature:
+
+```powershell
+.\scripts\test_client_appointment.ps1
+```
+
+This script will:
+1. Check if the GraphQL server is running (and start it if needed)
+2. Install any required Python packages
+3. Run the test script that demonstrates client appointment creation
+4. Display the results of the test
+
 ### GraphQL Server Management
 
 The project includes several scripts for managing the GraphQL server:
@@ -89,6 +107,7 @@ The project includes several scripts for managing the GraphQL server:
 - **`scripts/reset_graphql_server.ps1`**: Stops any running GraphQL server processes and starts a new one
 - **`scripts/add_test_client.py`**: Adds a test client using the GraphQL API
 - **`scripts/fix_service_types.py`**: Fixes service type enum values in the database
+- **`scripts/test_client_appointment.ps1`**: Tests the client appointment creation feature
 
 To reset the GraphQL server:
 ```powershell
@@ -323,6 +342,7 @@ This project uses Bitwarden for secure credential management. This approach:
 - Avoid hardcoding sensitive values in code, even in configuration files
 - Use the provided setup scripts to configure your environment securely
 - All password inputs in the system are hidden when typed for enhanced security
+- Password input is securely masked with asterisks (*) for improved security (see [Password Security](docs/password_security.md))
 
 ### Cleaning Up Sensitive Information
 
@@ -340,6 +360,7 @@ This script will:
 For more detailed information about security and credential management, see:
 - [Security Guidelines](docs/security_guidelines.md)
 - [Bitwarden Integration](docs/bitwarden_integration.md)
+- [Password Security](docs/password_security.md)
 - [GitHub's documentation on push protection](https://docs.github.com/code-security/secret-scanning/working-with-push-protection-from-the-command-line)
 
 ## Contributing
@@ -352,7 +373,8 @@ For more detailed information about security and credential management, see:
 ## TODO
 - [ ] Set up initial project structure
 - [ ] Implement user authentication
-- [ ] Create appointment CRUD operations
+- [x] Create appointment CRUD operations
+- [x] Enable client-initiated appointment creation
 - [ ] Add calendar view
 - [ ] Implement email notifications
 - [ ] Add admin functionality
@@ -364,6 +386,7 @@ For more detailed information about security and credential management, see:
 - [ ] Create client referral system
 - [x] Implement secure credential management with Bitwarden
 - [x] Set up GraphQL console and documentation
+- [x] Implement secure password input with masked characters
 - [ ] Add GraphQL subscriptions for real-time updates
 - [ ] Implement rate limiting for GraphQL queries
 - [ ] Add query complexity analysis

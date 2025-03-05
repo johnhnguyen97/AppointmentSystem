@@ -1,10 +1,17 @@
 import json
 import os
 import subprocess
-import getpass
 import colorama
 from colorama import Fore, Style
 from typing import Dict, Any, Optional
+
+# Import our secure password input module
+try:
+    from scripts.secure_password_input import get_password
+except ImportError:
+    # Fallback to getpass if our module is not available
+    import getpass
+    get_password = getpass.getpass
 
 # Initialize colorama for Windows
 colorama.init()
@@ -12,11 +19,11 @@ colorama.init()
 def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None) -> Dict[str, Any]:
     """
     Retrieve credentials from Bitwarden vault
-    
+
     Args:
         item_name: Name of the item in Bitwarden vault
         field_names: List of field names to extract (if None, extracts all fields)
-        
+
     Returns:
         Dictionary containing the requested credentials
     """
@@ -24,15 +31,15 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
         # Get API key credentials from environment variables
         client_id = os.environ.get("BW_CLIENTID")
         client_secret = os.environ.get("BW_CLIENTSECRET")
-        
+
         if not client_id or not client_secret:
             raise ValueError("Bitwarden API credentials not found in environment variables")
-        
+
         # Set environment variables for Bitwarden API
         env = os.environ.copy()
         env["BW_CLIENTID"] = client_id
         env["BW_CLIENTSECRET"] = client_secret
-        
+
         # Check if already logged in
         status_result = subprocess.run(
             ['bw', 'status'],
@@ -40,10 +47,10 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
             text=True,
             env=env
         )
-        
+
         status = json.loads(status_result.stdout)
         session_key = None
-        
+
         # Check login status
         if status.get('status') == 'unlocked':
             # Already logged in and unlocked
@@ -52,7 +59,7 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
             if not session_key:
                 # Get session key by prompting for master password
                 print("Bitwarden vault is unlocked but session key not found in environment")
-                master_password = getpass.getpass("Enter your Bitwarden master password: ")
+                master_password = get_password("Enter your Bitwarden master password: ")
                 unlock_result = subprocess.run(
                     ['bw', 'unlock', master_password, '--raw'],
                     capture_output=True,
@@ -66,7 +73,7 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
         elif status.get('status') == 'locked':
             # Logged in but locked
             print("Bitwarden vault is locked")
-            master_password = getpass.getpass("Enter your Bitwarden master password: ")
+            master_password = get_password("Enter your Bitwarden master password: ")
             unlock_result = subprocess.run(
                 ['bw', 'unlock', master_password, '--raw'],
                 capture_output=True,
@@ -93,7 +100,7 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
                     # If login fails because already logged in, try to unlock
                     if "already logged in" in login_result.stderr:
                         print("Already logged in to Bitwarden")
-                        master_password = getpass.getpass("Enter your Bitwarden master password: ")
+                        master_password = get_password("Enter your Bitwarden master password: ")
                         unlock_result = subprocess.run(
                             ['bw', 'unlock', master_password, '--raw'],
                             capture_output=True,
@@ -108,10 +115,10 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
                         raise RuntimeError(f"Failed to login to Bitwarden: {login_result.stderr}")
             except Exception as e:
                 raise RuntimeError(f"Error during Bitwarden login: {str(e)}")
-        
+
         if not session_key:
             raise RuntimeError("Failed to get Bitwarden session key")
-        
+
         # Get the requested item
         result = subprocess.run(
             ['bw', 'get', 'item', item_name, '--session', session_key],
@@ -120,26 +127,26 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
             env=env,
             check=True
         )
-        
+
         # Parse the JSON output
         item = json.loads(result.stdout)
-        
+
         # Extract credentials
         credentials = {}
-        
+
         # Get username and password from login data
         login_data = item.get('login', {})
         if 'username' in login_data:
             credentials['username'] = login_data.get('username')
         if 'password' in login_data:
             credentials['password'] = login_data.get('password')
-        
+
         # Get custom fields
         for field in item.get('fields', []):
             field_name = field.get('name')
             if field_names is None or field_name in field_names:
                 credentials[field_name] = field.get('value')
-        
+
         # Get notes if needed (often contains JSON or other structured data)
         notes = item.get('notes')
         if notes:
@@ -153,9 +160,9 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
                 # If not JSON, store as raw notes
                 if field_names is None or 'notes' in field_names:
                     credentials['notes'] = notes
-        
+
         return credentials
-        
+
     except subprocess.CalledProcessError as e:
         error_msg = f"Bitwarden CLI error: {e.stderr}"
         raise RuntimeError(error_msg) from e
@@ -167,10 +174,10 @@ def get_bitwarden_credentials(item_name: str, field_names: Optional[list] = None
 def get_service_config(service_name: str) -> Dict[str, Any]:
     """
     Get configuration for a specific service from Bitwarden
-    
+
     Args:
         service_name: Name of the service (used as item name in Bitwarden)
-        
+
     Returns:
         Dictionary with service configuration
     """
@@ -179,7 +186,7 @@ def get_service_config(service_name: str) -> Dict[str, Any]:
 def get_database_credentials() -> Dict[str, str]:
     """
     Get database credentials for the Nail Appointment Database
-    
+
     Returns:
         Dictionary with database connection parameters
     """
@@ -188,16 +195,16 @@ def get_database_credentials() -> Dict[str, str]:
     port = os.environ.get("DB_PORT")
     database = os.environ.get("DB_NAME")
     username = os.environ.get("DB_USER")
-    
+
     # For the password, we should only use environment variable and not hardcode it
     password = os.environ.get("DB_PASSWORD")
-    
+
     # If any required credentials are missing, try to get them from Bitwarden
     if not all([host, port, database, username, password]):
         try:
             # Try to get credentials from Bitwarden
             bw_creds = get_bitwarden_credentials("Nail Appointment Database")
-            
+
             # Use values from Bitwarden if available, otherwise keep environment variables
             host = host or bw_creds.get('host')
             port = port or bw_creds.get('port')
@@ -206,12 +213,12 @@ def get_database_credentials() -> Dict[str, str]:
             password = password or bw_creds.get('password')
         except Exception as e:
             print(f"{Fore.YELLOW}Failed to get credentials from Bitwarden: {str(e)}{Style.RESET_ALL}")
-    
+
     # If password is still not available, prompt the user
     if not password:
         print(f"{Fore.YELLOW}Database password not found in environment variables or Bitwarden.{Style.RESET_ALL}")
-        password = getpass.getpass("Enter database password: ")
-    
+        password = get_password("Enter database password: ")
+
     # If any required credentials are still missing, raise an error
     if not all([host, port, database, username, password]):
         missing = []
@@ -221,7 +228,7 @@ def get_database_credentials() -> Dict[str, str]:
         if not username: missing.append("username")
         if not password: missing.append("password")
         raise ValueError(f"Missing required database credentials: {', '.join(missing)}")
-    
+
     creds = {
         'host': host,
         'port': port,
@@ -229,8 +236,8 @@ def get_database_credentials() -> Dict[str, str]:
         'username': username,
         'password': password
     }
-    
+
     # Only log non-sensitive information
     print(f"Database connection details: host={creds['host']}, port={creds['port']}, database={creds['database']}")
-    
+
     return creds
