@@ -17,10 +17,12 @@ ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-# Create a direct database connection without using Bitwarden
-DATABASE_URL = "postgresql+asyncpg://avnadmin:AVNS_IouBYATtqgwj42TCq5l@nail-appointment-db-appointmentsystem.e.aivencloud.com:23309/defaultdb"
+# Import database configuration from the project
+from src.main.config import settings
+
+# Create a database connection using the configuration
 engine = create_async_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
     connect_args={
