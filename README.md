@@ -1,165 +1,62 @@
 # Appointment System
 
-A comprehensive appointment management system with a Node.js backend API and Python data processing service.
-
-## Features
-
-### Core Features
-- [ ] User authentication and authorization
-- [ ] Appointment scheduling and tracking
-- [ ] Calendar view of appointments
-- [ ] Email notifications
-- [ ] User dashboard
-- [ ] Admin panel
-
-### Advanced Features
-- [ ] Service history tracking
-- [ ] Loyalty points system
-- [ ] Client referral tracking
-- [ ] Service package management
-
-## Tech Stack
-
-### Backend API (Node.js)
-- Express.js
-- MongoDB
-- JWT Authentication
-- Node.js v18+
-
-### Data Processing Service (Python)
-- Python 3.11+
-- SQLAlchemy (Async)
-- GraphQL
-- PostgreSQL
-- pytest for testing
+A robust appointment scheduling system with database integration.
 
 ## Project Structure
+
 ```
-AppointmentSystem/
-├── api/                   # Node.js API
-│   ├── src/
-│   │   ├── controllers/  # Request handlers
-│   │   ├── models/       # Data models
-│   │   ├── services/     # Business logic
-│   │   ├── utils/        # Helper functions
-│   │   └── config/       # Configuration files
-│   ├── docs/             # API documentation
-│   └── tests/            # API test files
-│
-├── service/              # Python Service
-│   ├── src/
-│   │   ├── auth.py      # Authentication logic
-│   │   ├── config.py    # Configuration settings
-│   │   ├── database.py  # Database connection
-│   │   ├── models.py    # SQLAlchemy models
-│   │   └── schema.py    # GraphQL schema
-│   └── tests/           # Python service tests
-│
-└── README.md            # Project documentation
+appointmentsystem/
+├── .env                  # Environment variables (not committed to git)
+├── src/                  # Source code
+│   ├── main/             # Main application code
+│   │   ├── migrations/   # Database migrations
+│   │   └── services/     # Business logic services
+│   ├── test/             # Test files
+│   └── utils/            # Utility functions
+├── tools/                # Tools and executables
+│   └── bws.exe           # Bitwarden Secrets Manager CLI
+└── certs/                # Certificates for secure connections
 ```
 
-## Getting Started
-
-### Prerequisites
-- Node.js v18+
-- Python 3.11+
-- MongoDB
-- PostgreSQL
-- npm (Node.js package manager)
-- pip (Python package manager)
-
-### Installation
+## Setup
 
 1. Clone the repository
-```bash
-git clone https://github.com/johnhnguyen97/AppointmentSystem.git
-cd AppointmentSystem
+2. Create a `.env` file in the root directory with the following variables:
+
+```
+# Bitwarden Secrets Manager Access Token
+BWS_ACCESS_TOKEN=your_access_token
+
+# Database Connection String
+DATABASE_URL=your_database_connection_string
 ```
 
-2. Install Node.js API dependencies
-```bash
-cd api
-npm install
-```
+3. Install dependencies:
 
-3. Install Python service dependencies
-```bash
-cd ../service
+```
 pip install -r requirements.txt
-pip install -r test-requirements.txt  # For development/testing
 ```
 
-4. Set up environment variables
-```bash
-# In api directory
-cp .env.example .env
-# Edit .env with Node.js API configuration
+## Database Configuration
 
-# In service directory
-cp .env.example .env
-# Edit .env with Python service configuration
+The application uses PostgreSQL for data storage. Database credentials are stored securely using the Bitwarden Secrets Manager or environment variables.
+
+To test the database connection:
+
+```
+python -m src.test.simple_db_test
 ```
 
-5. Start the development servers
-```bash
-# Terminal 1 - Node.js API
-cd api
-npm run dev
+## Security
 
-# Terminal 2 - Python Service
-cd service
-python -m src.server
-```
+- Sensitive credentials are stored in the `.env` file, which is excluded from version control in `.gitignore`
+- Database connections use SSL for secure communication
+- Bitwarden Secrets Manager is used for accessing secrets securely
 
-## Database Schemas
+## Development
 
-### MongoDB Collections (API)
-- users: User authentication and profile data
-- appointments: Appointment scheduling and details
-- notifications: Email and system notifications
-- settings: System configuration and preferences
+When developing:
 
-### PostgreSQL Tables (Service)
-- users: Extended user information
-- clients: Client profiles and preferences
-- appointments: Detailed appointment records
-- service_packages: Package deals and tracking
-- service_history: Historical service records
-
-## Testing
-
-### API Tests
-```bash
-cd api
-npm test
-```
-
-### Service Tests
-```bash
-cd service
-pytest
-```
-
-## Contributing
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## TODO
-- [ ] Set up initial project structure
-- [ ] Implement user authentication
-- [ ] Create appointment CRUD operations
-- [ ] Add calendar view
-- [ ] Implement email notifications
-- [ ] Add admin functionality
-- [ ] Write API documentation
-- [ ] Add unit tests
-- [ ] Set up CI/CD pipeline
-- [ ] Implement service history tracking
-- [ ] Add loyalty points system
-- [ ] Create client referral system
-
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+1. Always use the environment variables from `.env` for credentials
+2. Do not hardcode sensitive information in source code
+3. Use the utility functions in `src/utils/db_connection.py` for database connections
