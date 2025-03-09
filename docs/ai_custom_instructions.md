@@ -1,3 +1,7 @@
+# AI Reference Instructions
+
+Always refer to the file located at C:/Users/jnguyen/Documents/Work/Projects/appointmentsystem/docs/ai_custom_instructions.md for the latest updates regarding Git-related actions. Ensure you are using the most recent version of the file when performing any actions related to Git, branch creation, merging, or syncing tasks.
+
 # Git Workflow Instructions
 
 ## Branch Management
