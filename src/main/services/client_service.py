@@ -1,3 +1,0 @@
-"""
-Client business logic service.
-"""

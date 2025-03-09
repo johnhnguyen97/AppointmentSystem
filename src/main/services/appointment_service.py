@@ -1,3 +1,0 @@
-"""
-Appointment business logic service.
-"""

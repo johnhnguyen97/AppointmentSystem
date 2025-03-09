@@ -1,16 +1,3 @@
-# Dependencies
-node_modules/
-.pnp/
-.pnp.js
-
-# Environment
-.env
-.env.*
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
 # Python
 __pycache__/
 *.py[cod]
@@ -33,39 +20,44 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Environment
+.env
+.venv
+env/
 venv/
 ENV/
-
-# Testing
-coverage/
-
-# Production
-build/
-dist/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS
+*.swn
 .DS_Store
-Thumbs.db
 
-# Certificates
+# Certs and Keys
+*.pem
+*.key
+*.crt
 certs/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+package-lock.json

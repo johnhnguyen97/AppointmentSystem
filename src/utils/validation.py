@@ -1,3 +1,0 @@
-"""
-Validation helper utilities.
-"""

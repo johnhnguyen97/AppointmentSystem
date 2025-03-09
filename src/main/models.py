@@ -4,11 +4,75 @@ from sqlalchemy.future import select
 from enum import StrEnum
 from datetime import datetime, timezone, UTC, timedelta
 from nanoid import generate
+
+class ServiceType(StrEnum):
+    HAIRCUT = "Hair Cut"
+    MANICURE = "Manicure"
+    PEDICURE = "Pedicure"
+    FACIAL = "Facial"
+    MASSAGE = "Massage"
+    HAIRCOLOR = "Hair Color"
+    HAIRSTYLE = "Hair Style"
+    MAKEUP = "Makeup"
+    WAXING = "Waxing"
+    OTHER = "Other"
+
+    @classmethod
+    def get_duration_minutes(cls, service: 'ServiceType') -> int:
+        """Default duration in minutes for each service type"""
+        durations = {
+            cls.HAIRCUT: 30,
+            cls.MANICURE: 45,
+            cls.PEDICURE: 60,
+            cls.FACIAL: 60,
+            cls.MASSAGE: 60,
+            cls.HAIRCOLOR: 120,
+            cls.HAIRSTYLE: 45,
+            cls.MAKEUP: 60,
+            cls.WAXING: 30,
+            cls.OTHER: 30
+        }
+        return durations.get(service, 30)
+
+    @classmethod
+    def get_base_cost(cls, service: 'ServiceType') -> float:
+        """Base cost for each service type"""
+        costs = {
+            cls.HAIRCUT: 30.0,
+            cls.MANICURE: 25.0,
+            cls.PEDICURE: 35.0,
+            cls.FACIAL: 65.0,
+            cls.MASSAGE: 75.0,
+            cls.HAIRCOLOR: 100.0,
+            cls.HAIRSTYLE: 45.0,
+            cls.MAKEUP: 55.0,
+            cls.WAXING: 30.0,
+            cls.OTHER: 40.0
+        }
+        return costs.get(service, 40.0)
+
+    @classmethod
+    def get_loyalty_points(cls, service: 'ServiceType') -> int:
+        """Loyalty points earned for each service type"""
+        points = {
+            cls.HAIRCUT: 10,
+            cls.MANICURE: 8,
+            cls.PEDICURE: 12,
+            cls.FACIAL: 15,
+            cls.MASSAGE: 20,
+            cls.HAIRCOLOR: 25,
+            cls.HAIRSTYLE: 12,
+            cls.MAKEUP: 15,
+            cls.WAXING: 10,
+            cls.OTHER: 10
+        }
+        return points.get(service, 10)
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, declarative_mixin, declared_attr, declarative_base, registry, Session
-from sqlalchemy.sql import func, text
 from src.main.schema import AppointmentStatus
-from src.main.config import settings, ServiceType
+from sqlalchemy.orm import relationship, declarative_mixin, declared_attr
+from sqlalchemy.sql import func, text
+from datetime import datetime, timezone, UTC
+from sqlalchemy.orm import declarative_base, registry, Session
 
 def generate_nanoid():
     return generate(size=21)  # Default nanoid size
@@ -102,11 +166,11 @@ class Client(Base):
     @property
     def calculated_category(self) -> ClientCategory:
         """Calculate client category based on spending and visit history"""
-        if self.total_spent >= settings.CLIENT_PREMIUM_SPEND and self.visit_count >= settings.CLIENT_PREMIUM_VISITS:
+        if self.total_spent >= 1000 and self.visit_count >= 20:
             return ClientCategory.PREMIUM
-        elif self.total_spent >= settings.CLIENT_VIP_SPEND and self.visit_count >= settings.CLIENT_VIP_VISITS:
+        elif self.total_spent >= 500 and self.visit_count >= 10:
             return ClientCategory.VIP
-        elif self.visit_count >= settings.CLIENT_REGULAR_VISITS:
+        elif self.visit_count >= 3:
             return ClientCategory.REGULAR
         return ClientCategory.NEW
 
@@ -135,8 +199,8 @@ class Client(Base):
 
 def calculate_appointment_cost(service_type: ServiceType, duration_minutes: int) -> float:
     """Calculate appointment cost based on service type and duration"""
-    base_cost = settings.SERVICE_BASE_COSTS.get(service_type, 40.0)
-    default_duration = settings.SERVICE_DURATIONS.get(service_type, 30)
+    base_cost = ServiceType.get_base_cost(service_type)
+    default_duration = ServiceType.get_duration_minutes(service_type)
     
     # Adjust cost if duration differs from default
     if duration_minutes != default_duration:
@@ -146,32 +210,33 @@ def calculate_appointment_cost(service_type: ServiceType, duration_minutes: int)
 
 def validate_appointment(mapper, connection, target):
     """Enhanced appointment validation with business rules"""
-    # Business hours validation
+    """Validate appointment rules and set calculated fields"""
+    # Business hours validation (9 AM to 7 PM)
     start_hour = target.start_time.hour
     end_time = target.start_time + timedelta(minutes=target.duration_minutes)
     end_hour = end_time.hour
     
-    if start_hour < settings.BUSINESS_HOUR_START or end_hour >= settings.BUSINESS_HOUR_END:
-        raise ValueError(f"Appointments must be between {settings.BUSINESS_HOUR_START} AM and {settings.BUSINESS_HOUR_END - 12} PM")
+    if start_hour < 9 or end_hour >= 19:
+        raise ValueError("Appointments must be between 9 AM and 7 PM")
     
     # Weekend validation
-    if not settings.ALLOW_WEEKEND_APPOINTMENTS and target.start_time.weekday() >= 5:  # Saturday = 5, Sunday = 6
+    if target.start_time.weekday() >= 5:  # Saturday = 5, Sunday = 6
         raise ValueError("Appointments cannot be scheduled on weekends")
     
     # Validate start_time is not in the past and has minimum notice
-    min_notice = timedelta(hours=settings.APPOINTMENT_MIN_NOTICE_HOURS)
+    min_notice = timedelta(hours=2)
     if target.start_time < datetime.now(timezone.utc) + min_notice:
-        raise ValueError(f"Appointments must be scheduled at least {settings.APPOINTMENT_MIN_NOTICE_HOURS} hours in advance")
+        raise ValueError("Appointments must be scheduled at least 2 hours in advance")
     
     # Validate duration based on service type
-    min_duration = settings.APPOINTMENT_MIN_DURATION_MINUTES
-    max_duration = settings.APPOINTMENT_MAX_DURATION_MINUTES
-    default_duration = settings.SERVICE_DURATIONS.get(target.service_type, 30)
+    min_duration = 15
+    max_duration = 480  # 8 hours
+    default_duration = ServiceType.get_duration_minutes(target.service_type)
     
     if target.duration_minutes < min_duration:
-        raise ValueError(f"Appointment duration must be at least {min_duration} minutes")
+        raise ValueError("Appointment duration must be at least 15 minutes")
     if target.duration_minutes > max_duration:
-        raise ValueError(f"Appointment duration cannot exceed {max_duration} minutes")
+        raise ValueError("Appointment duration cannot exceed 8 hours")
     if target.duration_minutes < default_duration:
         raise ValueError(f"Duration cannot be less than {default_duration} minutes for {target.service_type.value}")
 
@@ -262,20 +327,18 @@ class ServiceHistory(TimestampMixin, Base):
 def validate_service_package(mapper, connection, target):
     """Validate service package rules"""
     # Ensure expiry date is in the future
-    min_duration = timedelta(days=settings.PACKAGE_MIN_DURATION_DAYS)
+    min_duration = timedelta(days=30)  # Minimum package duration is 30 days
     if target.expiry_date <= datetime.now(UTC) + min_duration:
-        raise ValueError(f"Package expiry must be at least {settings.PACKAGE_MIN_DURATION_DAYS} days in the future")
+        raise ValueError("Package expiry must be at least 30 days in the future")
     
     # Validate sessions
     if target.total_sessions < 1:
         raise ValueError("Package must include at least 1 session")
-    if target.total_sessions > settings.PACKAGE_MAX_SESSIONS:
-        raise ValueError(f"Package cannot exceed {settings.PACKAGE_MAX_SESSIONS} sessions")
+    if target.total_sessions > 52:  # Maximum 52 sessions (weekly for a year)
+        raise ValueError("Package cannot exceed 52 sessions")
     
     # Validate cost based on service type and sessions
-    discount_factor = (100 - settings.PACKAGE_DISCOUNT_PERCENTAGE) / 100
-    base_cost = settings.SERVICE_BASE_COSTS.get(target.service_type, 40.0)
-    min_cost_per_session = base_cost * discount_factor
+    min_cost_per_session = ServiceType.get_base_cost(target.service_type) * 0.8  # 20% discount
     if target.package_cost < (min_cost_per_session * target.total_sessions):
         raise ValueError("Package cost is below minimum allowed value")
 
@@ -319,6 +382,7 @@ class ServicePackage(TimestampMixin, Base):
 
 def update_client_metrics(mapper, connection, target):
     """Update client metrics when service is completed"""
+    """Update client loyalty points when service history is added"""
     # Update client metrics
     client_result = connection.execute(text("""
         UPDATE clients
@@ -335,16 +399,18 @@ def update_client_metrics(mapper, connection, target):
     }).scalar()
 
 def ensure_timestamps(mapper, connection, target):
-    """Ensure timestamps are set"""
     if not target.updated_at:
         target.updated_at = datetime.now(UTC)
 
 # Register the event listeners
 event.listen(Appointment, 'before_insert', validate_appointment)
 event.listen(Appointment, 'before_update', validate_appointment)
-event.listen(ServicePackage, 'before_insert', validate_service_package)
-event.listen(ServicePackage, 'before_update', validate_service_package)
-event.listen(ServiceHistory, 'after_insert', update_client_metrics)
 event.listen(User, 'before_insert', ensure_timestamps)
 event.listen(Appointment, 'before_insert', ensure_timestamps)
 event.listen(ServiceHistory, 'before_insert', ensure_timestamps)
+# Register all event listeners
+event.listen(Appointment, 'before_insert', validate_appointment)
+event.listen(Appointment, 'before_update', validate_appointment)
+event.listen(ServicePackage, 'before_insert', validate_service_package)
+event.listen(ServicePackage, 'before_update', validate_service_package)
+event.listen(ServiceHistory, 'after_insert', update_client_metrics)
