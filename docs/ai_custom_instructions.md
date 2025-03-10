@@ -2,7 +2,7 @@
 
 For this project, any AI assistant (like Cline) must:
 
-Always refer to the file located at C:/Users/jnguyen/Documents/Work/Projects/appointmentsystem/docs/ai_custom_instructions.md for the latest updates regarding Git-related actions. Ensure you are using the most recent version of the file when performing any actions related to Git, branch creation, merging, or syncing tasks.
+Always refer to the file located at /doc/ai_custom_instructions.md for the latest updates regarding Git-related actions across different projects, repositories, and computers. Ensure you are using the most recent version of the file when performing any Git-related tasks, including branch creation, merging, and syncing.
 
 Recent changes include:
 1. Git workflow guidelines and best practices
