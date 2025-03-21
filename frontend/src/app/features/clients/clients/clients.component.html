@@ -1,0 +1,124 @@
+<app-page-container>
+  <div class="clients-container">
+    <mat-card>
+      <div class="card-header">
+        <div class="header-title">
+          <h2>Client List</h2>
+          <span class="total-clients">Total: {{ dataSource.length }} clients</span>
+        </div>
+        
+        <!-- Search and Filter Controls -->
+        <div class="controls-container">
+          <div class="search-box">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Search clients...">
+            <button mat-icon-button class="clear-button">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="filter-controls">
+            <div class="filter-group">
+              <button mat-button [matMenuTriggerFor]="statusMenu" class="filter-button">
+                <mat-icon>filter_list</mat-icon>
+                <span>Status</span>
+              </button>
+              <mat-menu #statusMenu="matMenu">
+                <button mat-menu-item value="all">All</button>
+                <button mat-menu-item value="active">Active</button>
+                <button mat-menu-item value="inactive">Inactive</button>
+                <button mat-menu-item value="new">New</button>
+              </mat-menu>
+
+              <button mat-button [matMenuTriggerFor]="serviceMenu" class="filter-button">
+                <mat-icon>category</mat-icon>
+                <span>Service</span>
+              </button>
+              <mat-menu #serviceMenu="matMenu">
+                <button mat-menu-item value="all">All Services</button>
+              </mat-menu>
+            </div>
+
+            <div class="sort-group">
+              <button mat-button [matMenuTriggerFor]="sortMenu" class="filter-button">
+                <mat-icon>sort</mat-icon>
+                <span>Sort</span>
+              </button>
+              <mat-menu #sortMenu="matMenu">
+                <button mat-menu-item value="name">
+                  <mat-icon>sort_by_alpha</mat-icon>
+                  Name
+                </button>
+                <button mat-menu-item value="recent">
+                  <mat-icon>access_time</mat-icon>
+                  Most Recent
+                </button>
+                <button mat-menu-item value="upcoming">
+                  <mat-icon>event</mat-icon>
+                  Upcoming
+                </button>
+              </mat-menu>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client Table Section -->
+      <div class="table-section">
+        <mat-card class="table-card">
+          <div class="table-container">
+            <div class="table-scroll-container" #tableContainer>
+              <table mat-table [dataSource]="dataSource">
+                <ng-container *ngFor="let column of columns" [matColumnDef]="column.key">
+                  <th mat-header-cell *matHeaderCellDef [style.width]="column.width" [style.text-align]="column.align">
+                    {{ column.header }}
+                  </th>
+                  <td mat-cell *matCellDef="let client" [style.width]="column.width" [style.text-align]="column.align">
+                    <ng-container [ngSwitch]="column.type">
+                      <!-- Status Column -->
+                      <div *ngSwitchCase="'status'" class="status-badge" [class]="client.status">
+                        {{ client.status }}
+                      </div>
+                      
+                      <!-- Actions Column -->
+                      <ng-container *ngSwitchCase="'actions'">
+                        <button mat-icon-button [matMenuTriggerFor]="menu" class="action-button">
+                          <mat-icon>more_vert</mat-icon>
+                        </button>
+                        <mat-menu #menu="matMenu">
+                          <button mat-menu-item>
+                            <mat-icon>edit</mat-icon>
+                            <span>Edit</span>
+                          </button>
+                          <button mat-menu-item>
+                            <mat-icon>event</mat-icon>
+                            <span>Book Appointment</span>
+                          </button>
+                          <button mat-menu-item>
+                            <mat-icon>history</mat-icon>
+                            <span>View History</span>
+                          </button>
+                        </mat-menu>
+                      </ng-container>
+
+                      <!-- Default Column Types -->
+                      <ng-container *ngSwitchDefault>
+                        <div class="cell-content">
+                          {{ formatColumnValue(client, column) }}
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
+            </div>
+            <mat-paginator [pageSize]="10" [pageSizeOptions]="[5, 10, 20, 50]"></mat-paginator>
+          </div>
+        </mat-card>
+      </div>
+    </mat-card>
+  </div>
+</app-page-container>

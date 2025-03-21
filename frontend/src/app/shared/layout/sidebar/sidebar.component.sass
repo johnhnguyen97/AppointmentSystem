@@ -1,0 +1,315 @@
+.sidebar-container
+  display: flex
+  flex-direction: column
+  height: 100%
+  background: #f5f5f5
+  width: 200px
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+  overflow: hidden
+
+  &.collapsed
+    width: 72px
+
+    .logo-container
+      padding: 0
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05)
+      
+      .toggle-btn
+        margin: 0
+        width: 100%
+        padding: 12px 4px
+        border-radius: 0
+        display: flex
+        justify-content: center
+        
+        &:hover
+          background-color: rgba(0, 0, 0, 0.03)
+        
+      .logo
+        opacity: 0
+        width: 0
+        visibility: hidden
+
+    .profile-container
+      padding: 20px
+      
+      .user-profile
+        justify-content: center
+        
+        .profile-info
+          opacity: 0
+          width: 0
+          visibility: hidden
+
+    .nav-container
+      padding: 20px 0
+
+      .nav-grid-wrapper
+        width: 56px
+        background: none
+        padding: 0
+
+        .nav-grid
+          grid-template-columns: 1fr
+          gap: 0
+
+          .nav-tile
+            padding: 12px 4px
+            background: none
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05)
+            outline: none
+
+            &:last-child
+              border-bottom: none
+
+            span
+              opacity: 0
+              width: 0
+              visibility: hidden
+
+    .footer-container
+      padding: 0
+
+      .bottom-actions
+        max-width: 72px
+        
+        .action-item
+          justify-content: center
+          padding: 12px 4px
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05)
+          
+          &:last-child
+            border-bottom: none
+
+          mat-icon
+            margin-right: 0
+
+          span
+            opacity: 0
+            width: 0
+            visibility: hidden
+
+  .logo-container
+    display: flex
+    align-items: center
+    padding: 20px
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+    .toggle-btn
+      margin-right: 12px
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+      color: rgba(0, 0, 0, 0.4)
+      outline: none
+
+      mat-icon
+        font-size: 16px
+        width: 16px
+        height: 16px
+
+      &:hover
+        background-color: rgba(0, 0, 0, 0.03)
+
+    .logo
+      font-size: 12px
+      font-weight: 500
+      color: rgba(0, 0, 0, 0.6)
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+      opacity: 1
+      visibility: visible
+
+  .profile-container
+    padding: 20px
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+    .user-profile
+      display: flex
+      flex-direction: column
+      align-items: center
+      gap: 12px
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+      .profile-image
+        position: relative
+        width: 64px
+        height: 64px
+        flex-shrink: 0
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+        img
+          width: 100%
+          height: 100%
+          border-radius: 50%
+          object-fit: cover
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+        .status-badge
+          position: absolute
+          bottom: 0
+          right: 0
+          width: 8px
+          height: 8px
+          background: #4CAF50
+          border-radius: 50%
+          color: transparent
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+      .profile-info
+        text-align: center
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+        opacity: 1
+        visibility: visible
+        
+        h3
+          margin: 0
+          font-size: 12px
+          font-weight: 500
+          color: rgba(0, 0, 0, 0.6)
+
+        p
+          margin: 4px 0 0
+          font-size: 10px
+          color: rgba(0, 0, 0, 0.4)
+
+  .nav-container
+    flex: 1
+    display: flex
+    align-items: center
+    justify-content: center
+    padding: 24px 0
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+    .nav-grid-wrapper
+      width: 140px
+      border-radius: 0
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+      border: 1px solid rgba(0, 0, 0, 0.05)
+
+      .nav-grid
+        display: grid
+        grid-template-columns: repeat(2, 1fr)
+        gap: 0
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+
+        .nav-tile
+          display: flex
+          flex-direction: column
+          align-items: center
+          justify-content: center
+          text-decoration: none
+          padding: 24px 4px
+          border-radius: 0
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+          aspect-ratio: 1
+          background: #f5f5f5
+          border-right: 1px solid rgba(0, 0, 0, 0.05)
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05)
+          outline: none
+          
+          &:nth-child(2n)
+            border-right: none
+
+          &:nth-last-child(-n+2)
+            border-bottom: none
+      
+          &.active
+            background-color: rgba(0, 0, 0, 0.03)
+            
+            mat-icon
+              color: #ff4081
+            
+            span
+              color: #ff4081
+              font-weight: 500
+           
+          &:hover
+            background-color: rgba(0, 0, 0, 0.03)
+           
+          mat-icon
+            color: rgba(0, 0, 0, 0.4)
+            font-size: 16px
+            width: 16px
+            height: 16px
+            margin-bottom: 4px
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+           
+          span
+            font-size: 10px
+            color: rgba(0, 0, 0, 0.5)
+            text-align: center
+            white-space: nowrap
+            overflow: hidden
+            text-overflow: ellipsis
+            max-width: 100%
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+            opacity: 1
+            visibility: visible
+
+  .footer-container
+    margin-top: auto
+    padding: 20px
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+    
+    .bottom-actions
+      display: flex
+      flex-direction: column
+      gap: 8px
+      width: 100%
+      max-width: 140px
+      margin: 0 auto
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+      
+      .action-item
+        display: flex
+        flex-direction: row
+        align-items: center
+        padding: 8px 12px
+        border-radius: 0
+        text-decoration: none
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+        width: 100%
+        outline: none
+        
+        &:hover
+          opacity: 1
+          background-color: rgba(0, 0, 0, 0.03)
+        
+        mat-icon
+          color: rgba(0, 0, 0, 0.4)
+          font-size: 16px
+          width: 16px
+          height: 16px
+          margin-right: 8px
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+        
+        span
+          font-size: 10px
+          color: rgba(0, 0, 0, 0.5)
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+          opacity: 1
+          visibility: visible
+
+// Responsive adjustments
+@media screen and (max-width: 1200px)
+  .sidebar-container
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+    
+    &.collapsed
+      width: 72px
+
+@media screen and (max-width: 992px)
+  .sidebar-container
+    width: 180px
+    
+    &.collapsed
+      width: 64px
+
+    .nav-container
+      .nav-grid-wrapper
+        width: 120px
+        
+        .nav-grid
+          gap: 0
+
+@media screen and (max-width: 576px)
+  .sidebar-container
+    display: none

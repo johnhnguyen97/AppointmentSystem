@@ -1,0 +1,61 @@
+<div class="sidebar-container" [class.collapsed]="isCollapsed$ | async" [class.mobile-collapsed]="isMobileCollapsed$ | async" [class.mobile]="isMobile">
+  <!-- Logo and Toggle -->
+  <div class="logo-container">
+    <button mat-icon-button class="toggle-btn" (click)="toggleSidebar()">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <div class="logo">Nailpro Salon</div>
+  </div>
+
+  <!-- User Profile -->
+  <div class="profile-container">
+    <div class="user-profile">
+      <div class="profile-image">
+        <img src="assets/profile-images/profile.png" alt="User Profile">
+        <span class="status-badge">●</span>
+      </div>
+      <div class="profile-info">
+        <h3>Hello Admin</h3>
+        <p>admin&#64;nailsalonpro.com</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Menu -->
+  <div class="nav-container">
+    <div class="nav-grid-wrapper">
+      <div class="nav-grid">
+        <a class="nav-tile" routerLink="/dashboard" routerLinkActive="active">
+          <mat-icon>dashboard</mat-icon>
+          <span>Dashboard</span>
+        </a>
+        <a class="nav-tile" routerLink="/calendar" routerLinkActive="active">
+          <mat-icon>calendar_today</mat-icon>
+          <span>Calendar</span>
+        </a>
+        <a class="nav-tile" routerLink="/clients" routerLinkActive="active">
+          <mat-icon>people</mat-icon>
+          <span>Clients</span>
+        </a>
+        <a class="nav-tile" routerLink="/settings" routerLinkActive="active">
+          <mat-icon>settings</mat-icon>
+          <span>Settings</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="footer-container">
+    <div class="bottom-actions">
+      <a class="action-item">
+        <mat-icon>help_outline</mat-icon>
+        <span>Knowledge Base</span>
+      </a>
+      <a class="action-item">
+        <mat-icon>feedback</mat-icon>
+        <span>Send Feedback</span>
+      </a>
+    </div>
+  </div>
+</div>

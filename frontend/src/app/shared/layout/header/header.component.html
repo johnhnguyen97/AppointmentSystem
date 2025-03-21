@@ -1,0 +1,18 @@
+<mat-toolbar *ngIf="!isLoginPage" class="header">
+  <div class="toolbar-content">
+    <div class="start">
+      <span class="page-title">{{ pageTitle }}</span>
+    </div>
+    <div class="end">
+      <button mat-icon-button>
+        <mat-icon>notifications</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleTheme()">
+        <mat-icon>{{ (themeService.isDarkTheme$ | async) ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+      <button mat-icon-button (click)="logout()" title="Logout">
+        <mat-icon>logout</mat-icon>
+      </button>
+    </div>
+  </div>
+</mat-toolbar>

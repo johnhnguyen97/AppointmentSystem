@@ -1,0 +1,566 @@
+<app-page-container>
+  <mat-card class="settings-container">
+    <mat-card-header>
+      <mat-card-title>Settings</mat-card-title>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <div class="settings-layout">
+        <!-- Left Side: Navigation -->
+        <mat-card class="settings-nav">
+          <mat-nav-list>
+            <ng-container *ngFor="let section of sections">
+              <!-- Main Section -->
+              <mat-list-item 
+                [class.active]="isSelected(section.id)"
+                (click)="selectSection(section.id)">
+                <mat-icon matListItemIcon>{{ section.icon }}</mat-icon>
+                <span matListItemTitle>{{ section.title }}</span>
+              </mat-list-item>
+              
+              <!-- Subsections -->
+              <div class="subsections" [class.active]="isSelected(section.id)">
+                <mat-list-item *ngFor="let sub of section.subsections"
+                  [class.active]="isSubsectionSelected(sub.id)"
+                  (click)="selectSection(sub.id)">
+                  <div class="subsection-content">
+                    <mat-icon>{{ sub.icon }}</mat-icon>
+                    <div class="subsection-text">
+                      <span class="title">{{ sub.title }}</span>
+                    </div>
+                  </div>
+                </mat-list-item>
+              </div>
+            </ng-container>
+          </mat-nav-list>
+        </mat-card>
+
+        <!-- Right Side: Content -->
+        <div class="settings-content" #settingsContent>
+          <!-- Profile Section -->
+          <ng-container *ngIf="expandedSection === 'profile'">
+            <h2 class="section-label">Profile Settings</h2>
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>person</mat-icon>
+                <mat-card-title>Personal Information</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-personal">
+                <div class="settings-form">
+                  <h3>Basic Information</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Full Name</mat-label>
+                      <input matInput placeholder="Your name">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Email</mat-label>
+                      <input matInput placeholder="Your email">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Phone</mat-label>
+                      <input matInput placeholder="Your phone">
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>lock</mat-icon>
+                <mat-card-title>Security</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-security">
+                <div class="settings-form">
+                  <h3>Password</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Current Password</mat-label>
+                      <input matInput type="password">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>New Password</mat-label>
+                      <input matInput type="password">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Confirm Password</mat-label>
+                      <input matInput type="password">
+                    </mat-form-field>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Two-Factor Authentication</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Enable Two-Factor Authentication</mat-slide-toggle>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>settings</mat-icon>
+                <mat-card-title>Preferences</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-preferences">
+                <div class="settings-form">
+                  <h3>Regional Settings</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Language</mat-label>
+                      <mat-select>
+                        <mat-option *ngFor="let lang of languages" [value]="lang.code">
+                          {{ lang.name }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Time Zone</mat-label>
+                      <mat-select>
+                        <mat-option *ngFor="let tz of timeZones" [value]="tz">
+                          {{ tz }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Date & Time Format</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Date Format</mat-label>
+                      <mat-select>
+                        <mat-option *ngFor="let format of dateFormats" [value]="format.value">
+                          {{ format.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Time Format</mat-label>
+                      <mat-select>
+                        <mat-option *ngFor="let format of timeFormats" [value]="format.value">
+                          {{ format.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
+
+          <!-- Appearance Section -->
+          <ng-container *ngIf="expandedSection === 'appearance'">
+            <h2 class="section-label">Appearance</h2>
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>dark_mode</mat-icon>
+                <mat-card-title>Theme</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-theme">
+                <div class="settings-form">
+                  <h3>Color Theme</h3>
+                  <div class="theme-options">
+                    <mat-button-toggle-group>
+                      <mat-button-toggle value="light">Light</mat-button-toggle>
+                      <mat-button-toggle value="dark">Dark</mat-button-toggle>
+                      <mat-button-toggle value="system">System</mat-button-toggle>
+                    </mat-button-toggle-group>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Accent Color</h3>
+                  <div class="color-options">
+                    <button mat-mini-fab color="primary" class="color-option"></button>
+                    <button mat-mini-fab color="accent" class="color-option"></button>
+                    <button mat-mini-fab color="warn" class="color-option"></button>
+                    <button mat-mini-fab class="color-option custom"></button>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>format_size</mat-icon>
+                <mat-card-title>Font Settings</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-font">
+                <div class="settings-form">
+                  <h3>Text Size</h3>
+                  <div class="font-options">
+                    <mat-button-toggle-group>
+                      <mat-button-toggle value="small">Small</mat-button-toggle>
+                      <mat-button-toggle value="medium">Medium</mat-button-toggle>
+                      <mat-button-toggle value="large">Large</mat-button-toggle>
+                    </mat-button-toggle-group>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Font Family</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Primary Font</mat-label>
+                      <mat-select>
+                        <mat-option value="system">System Default</mat-option>
+                        <mat-option value="roboto">Roboto</mat-option>
+                        <mat-option value="open-sans">Open Sans</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>view_quilt</mat-icon>
+                <mat-card-title>Layout Options</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-layout">
+                <div class="settings-form">
+                  <h3>Navigation</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Compact Sidebar</mat-slide-toggle>
+                    <mat-slide-toggle>Show Labels</mat-slide-toggle>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Dashboard Layout</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Default View</mat-label>
+                      <mat-select>
+                        <mat-option value="grid">Grid</mat-option>
+                        <mat-option value="list">List</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
+
+          <!-- Notifications Section -->
+          <ng-container *ngIf="expandedSection === 'notifications'">
+            <h2 class="section-label">Notifications</h2>
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>email</mat-icon>
+                <mat-card-title>Email Notifications</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-email">
+                <div class="settings-form">
+                  <h3>Email Preferences</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Appointment Reminders</mat-slide-toggle>
+                    <mat-slide-toggle>New Client Notifications</mat-slide-toggle>
+                    <mat-slide-toggle>Schedule Changes</mat-slide-toggle>
+                    <mat-slide-toggle>Daily Summary</mat-slide-toggle>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Reminder Settings</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Reminder Time</mat-label>
+                      <mat-select>
+                        <mat-option value="1">1 hour before</mat-option>
+                        <mat-option value="24">24 hours before</mat-option>
+                        <mat-option value="48">48 hours before</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>sms</mat-icon>
+                <mat-card-title>SMS Notifications</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-sms">
+                <div class="settings-form">
+                  <h3>SMS Alerts</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Appointment Reminders</mat-slide-toggle>
+                    <mat-slide-toggle>Urgent Updates</mat-slide-toggle>
+                    <mat-slide-toggle>Cancellations</mat-slide-toggle>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Phone Number</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Mobile Number</mat-label>
+                      <input matInput type="tel">
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>notifications_active</mat-icon>
+                <mat-card-title>Push Notifications</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-push">
+                <div class="settings-form">
+                  <h3>Browser Notifications</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Enable Push Notifications</mat-slide-toggle>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Notification Types</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>New Messages</mat-slide-toggle>
+                    <mat-slide-toggle>Appointment Updates</mat-slide-toggle>
+                    <mat-slide-toggle>System Alerts</mat-slide-toggle>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
+
+          <!-- Calendar Section -->
+          <ng-container *ngIf="expandedSection === 'calendar'">
+            <h2 class="section-label">Calendar Settings</h2>
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>schedule</mat-icon>
+                <mat-card-title>Work Hours</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-workHours">
+                <div class="settings-form">
+                  <h3>Business Hours</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Start Time</mat-label>
+                      <input matInput type="time">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>End Time</mat-label>
+                      <input matInput type="time">
+                    </mat-form-field>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Break Time</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Break Start</mat-label>
+                      <input matInput type="time">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Break End</mat-label>
+                      <input matInput type="time">
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>event_available</mat-icon>
+                <mat-card-title>Availability</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-availability">
+                <div class="settings-form">
+                  <h3>Working Days</h3>
+                  <div class="toggle-group">
+                    <mat-slide-toggle>Monday</mat-slide-toggle>
+                    <mat-slide-toggle>Tuesday</mat-slide-toggle>
+                    <mat-slide-toggle>Wednesday</mat-slide-toggle>
+                    <mat-slide-toggle>Thursday</mat-slide-toggle>
+                    <mat-slide-toggle>Friday</mat-slide-toggle>
+                    <mat-slide-toggle>Saturday</mat-slide-toggle>
+                    <mat-slide-toggle>Sunday</mat-slide-toggle>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Time Off</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Start Date</mat-label>
+                      <input matInput type="date">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>End Date</mat-label>
+                      <input matInput type="date">
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>rule</mat-icon>
+                <mat-card-title>Scheduling Rules</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-scheduling">
+                <div class="settings-form">
+                  <h3>Appointment Duration</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Default Duration</mat-label>
+                      <mat-select>
+                        <mat-option value="15">15 minutes</mat-option>
+                        <mat-option value="30">30 minutes</mat-option>
+                        <mat-option value="45">45 minutes</mat-option>
+                        <mat-option value="60">1 hour</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <h3>Booking Rules</h3>
+                  <div class="form-group">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Minimum Notice</mat-label>
+                      <mat-select>
+                        <mat-option value="1">1 hour</mat-option>
+                        <mat-option value="24">24 hours</mat-option>
+                        <mat-option value="48">48 hours</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Maximum Advance Booking</mat-label>
+                      <mat-select>
+                        <mat-option value="1">1 week</mat-option>
+                        <mat-option value="2">2 weeks</mat-option>
+                        <mat-option value="4">1 month</mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
+
+          <!-- Integrations Section -->
+          <ng-container *ngIf="expandedSection === 'integrations'">
+            <h2 class="section-label">Integrations</h2>
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>sync</mat-icon>
+                <mat-card-title>Calendar Sync</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-calendar-sync">
+                <div class="settings-form">
+                  <h3>Connected Calendars</h3>
+                  <div class="integration-list">
+                    <div class="integration-item">
+                      <mat-icon>event</mat-icon>
+                      <span>Google Calendar</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>event</mat-icon>
+                      <span>Outlook Calendar</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>event</mat-icon>
+                      <span>iCloud Calendar</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>payments</mat-icon>
+                <mat-card-title>Payment Services</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-payment">
+                <div class="settings-form">
+                  <h3>Payment Providers</h3>
+                  <div class="integration-list">
+                    <div class="integration-item">
+                      <mat-icon>payment</mat-icon>
+                      <span>Stripe</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>payment</mat-icon>
+                      <span>PayPal</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>payment</mat-icon>
+                      <span>Square</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="settings-detail-card">
+              <mat-card-header>
+                <mat-icon>chat</mat-icon>
+                <mat-card-title>Messaging Services</mat-card-title>
+              </mat-card-header>
+
+              <mat-card-content id="section-messaging">
+                <div class="settings-form">
+                  <h3>Messaging Platforms</h3>
+                  <div class="integration-list">
+                    <div class="integration-item">
+                      <mat-icon>chat</mat-icon>
+                      <span>WhatsApp Business</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>chat</mat-icon>
+                      <span>Facebook Messenger</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                    <div class="integration-item">
+                      <mat-icon>chat</mat-icon>
+                      <span>Twilio SMS</span>
+                      <button mat-button color="primary">Connect</button>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </ng-container>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</app-page-container>

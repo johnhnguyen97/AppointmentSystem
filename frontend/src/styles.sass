@@ -1,0 +1,93 @@
+/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat
+@use 'app/styles/mixins' as mixins
+
+// Common Material Overrides
+.mat-mdc-card
+  background: var(--background-paper)
+  border-radius: 8px
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12)
+
+.mat-mdc-form-field
+  width: 100%
+
+.mat-mdc-button-toggle-group
+  border-radius: 8px
+  border: 1px solid var(--border-color)
+  overflow: hidden
+
+  .mat-mdc-button-toggle
+    background: var(--background-paper)
+    border: none
+    border-right: 1px solid var(--border-color)
+
+    &:last-child
+      border-right: none
+
+    &.mat-mdc-button-toggle-checked
+      background: var(--primary-light)
+      color: var(--primary)
+
+.mat-mdc-slide-toggle
+  .mdc-switch
+    margin-right: 8px
+
+.mat-mdc-icon-button
+  mat-icon
+    @include mixins.icon-size(24px)
+
+// Common Utility Classes
+.flex-center
+  @include mixins.flex-center
+
+.flex-between
+  @include mixins.flex-between
+
+.flex-column
+  @include mixins.flex-column
+
+.text-truncate
+  @include mixins.text-truncate
+
+// Common Form Styles
+.form-group
+  @include mixins.flex-column
+  gap: 16px
+  max-width: 400px
+
+// Theme Variables
+:root
+  // Light Theme
+  --background-paper: #ffffff
+  --background-light: #f5f5f5
+  --text-primary: rgba(0, 0, 0, 0.87)
+  --text-secondary: rgba(0, 0, 0, 0.6)
+  --border-color: rgba(0, 0, 0, 0.12)
+  --border-color-light: rgba(0, 0, 0, 0.08)
+  --border-color-dark: rgba(0, 0, 0, 0.2)
+  --hover-color: rgba(0, 0, 0, 0.04)
+  --active-color: rgba(0, 0, 0, 0.08)
+  --primary: #1976d2
+  --primary-light: rgba(25, 118, 210, 0.08)
+  --primary-rgb: 25, 118, 210
+  --success: #2e7d32
+  --success-rgb: 46, 125, 50
+  --error: #d32f2f
+  --error-rgb: 211, 47, 47
+  --info: #0288d1
+  --info-rgb: 2, 136, 209
+
+// Scrollbar Styles
+::-webkit-scrollbar
+  width: 6px
+  height: 6px
+
+::-webkit-scrollbar-track
+  background: var(--background-light)
+
+::-webkit-scrollbar-thumb
+  background: var(--border-color)
+  border-radius: 3px
+
+  &:hover
+    background: var(--border-color-dark)

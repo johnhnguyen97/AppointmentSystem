@@ -1,0 +1,53 @@
+<app-page-container>
+  <mat-card class="outer-card">
+    <mat-card-header class="calendar-title">
+      <mat-card-title>
+        <mat-icon>calendar_today</mat-icon>
+        <span>Calendar</span>
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="nav-button" (click)="prevMonth()">&#9664;</button>
+          <h2 class="month-heading">{{ getMonthName(currentMonth) }} {{ currentYear }}</h2>
+          <button class="nav-button" (click)="nextMonth()">&#9654;</button>
+        </div>
+
+        <mat-card class="inner-card">
+          <div class="calendar-grid">
+            <!-- Header row -->
+            <div class="days-header">
+              <!-- Time column header with clock icon -->
+              <div class="time-header">
+                <mat-icon>schedule</mat-icon>
+              </div>
+              <!-- Days headers -->
+              <div class="day-header" *ngFor="let day of daysOfWeek">{{ day }}</div>
+            </div>
+
+            <!-- Main grid content -->
+            <div class="grid-content">
+              <!-- Time column -->
+              <div class="time-column">
+                <div class="time-cell" *ngFor="let hour of hours">
+                  {{ formatHour(hour.hour) }}
+                </div>
+              </div>
+
+              <!-- Days grid with time slots -->
+              <div class="days-grid">
+                <!-- Column for each day -->
+                <div class="day-column" *ngFor="let day of daysOfWeek">
+                  <!-- Time slots -->
+                  <div class="time-slot" *ngFor="let hour of hours"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</app-page-container>

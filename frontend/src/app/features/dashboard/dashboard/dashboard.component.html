@@ -1,0 +1,142 @@
+<app-page-container>
+  <div class="dashboard-container" [class.sidebar-collapsed]="isCollapsed$ | async">
+    <!-- Loading State -->
+    <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+
+    <!-- Error State -->
+    <mat-card *ngIf="error" class="error-card">
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon>error</mat-icon>
+          <span>{{ error }}</span>
+        </div>
+        <button mat-button color="primary" (click)="retryLoad()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
+      </mat-card-content>
+    </mat-card>
+    <!-- Main Content -->
+    <ng-container *ngIf="!isLoading">
+      <!-- Stats Overview -->
+      <div class="stats-grid">
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-content">
+            <mat-icon class="stat-icon">event</mat-icon>
+            <div class="stat-info">
+              <h3>Today's Appointments</h3>
+              <p class="stat-value">{{ stats.todaysAppointmentsCount }}</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-content">
+            <mat-icon class="stat-icon">people</mat-icon>
+            <div class="stat-info">
+              <h3>Total Clients</h3>
+              <p class="stat-value">{{ stats.totalClients }}</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-content">
+            <mat-icon class="stat-icon">schedule</mat-icon>
+            <div class="stat-info">
+              <h3>Upcoming</h3>
+              <p class="stat-value">{{ stats.upcomingAppointmentsCount }}</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+      <!-- Upcoming Appointments -->
+      <mat-card class="appointments-card">
+        <mat-card-header>
+          <mat-card-title>Today's Appointments</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="appointments-list">
+            <div *ngFor="let appointment of todayAppointments" class="appointment-item">
+              <div class="appointment-time">
+                {{ appointment.startTime | date:'shortTime' }}
+              </div>
+              <div class="appointment-details">
+                <h4>{{ appointment.title }}</h4>
+                <p class="service-type">{{ appointment.serviceType }}</p>
+                <p class="duration">{{ appointment.durationMinutes }} minutes</p>
+              </div>
+              <div class="appointment-status" [class]="appointment.status.toLowerCase()">
+                {{ appointment.status }}
+              </div>
+            </div>
+            <div *ngIf="!todayAppointments.length" class="no-data">
+              <p>No appointments scheduled for today</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Recent Activity -->
+      <mat-card class="activity-card">
+        <mat-card-header>
+          <mat-card-title>Recent Activity</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="activity-list">
+            <div *ngFor="let activity of activities" class="activity-item">
+              <mat-icon class="activity-icon" [class]="activity.type">
+                {{ activity.type === 'appointment' ? 'event_available' :
+                   activity.type === 'client' ? 'person_add' : 'check_circle' }}
+              </mat-icon>
+              <div class="activity-details">
+                <p class="activity-text">{{ activity.text }}</p>
+                <span class="activity-time">{{ activity.time | date:'short' }}</span>
+              </div>
+            </div>
+            <div *ngIf="!activities.length" class="no-data">
+              <p>No recent activity</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Client Overview -->
+      <mat-card class="clients-card">
+        <mat-card-header>
+          <mat-card-title>Recent Clients</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="clients-list">
+            <div *ngFor="let client of recentClients" class="client-item">
+              <mat-icon class="client-icon">account_circle</mat-icon>
+              <div class="client-details">
+                <h4>{{ client.phone }}</h4>
+                <p class="service-type">{{ client.service }}</p>
+                <p class="stats">
+                  <span>{{ client.notes }}</span>
+                </p>
+              </div>
+              <div class="client-status" [class]="client.status.toLowerCase()">
+                {{ client.status }}
+              </div>
+            </div>
+            <div *ngIf="!recentClients.length" class="no-data">
+              <p>No recent clients</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+      </div>
+    </ng-container>
+  </div>
+</app-page-container>

@@ -1,0 +1,14 @@
+<ng-container *ngIf="isLoginPage; else mainLayout">
+  <router-outlet></router-outlet>
+</ng-container>
+
+<ng-template #mainLayout>
+  <div class="app-container" [class.sidebar-collapsed]="isCollapsed$ | async">
+    <app-sidebar></app-sidebar>
+    <main class="main-content" [class.mobile-nav-collapsed]="isMobileCollapsed$ | async">
+      <app-header></app-header>
+      <router-outlet></router-outlet>
+    </main>
+    <app-mobile-nav></app-mobile-nav>
+  </div>
+</ng-template>
