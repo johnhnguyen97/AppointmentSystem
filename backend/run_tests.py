@@ -7,9 +7,13 @@ import webbrowser
 import tempfile
 import shutil
 import argparse
+import re  # Add import for regular expressions module
 from datetime import datetime
 from pathlib import Path
 import base64
+from dataclasses import dataclass
+from typing import List, Dict, Pattern
+from enum import Enum
 
 def ensure_venv():
     """Ensure virtual environment exists and is activated with dependencies."""
@@ -113,11 +117,133 @@ def encode_logo_as_base64():
             print(f"Warning: Could not read logo file: {e}")
     return ""
 
+
+class LogLevel(Enum):
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    FAILURE = "FAILURE"
+    INFO = "INFO"
+    DEBUG = "DEBUG"
+
+
+@dataclass
+class LogPattern:
+    level: LogLevel
+    patterns: List[Pattern[str]]
+    color: str  # CSS color for HTML
+    symbol: str
+    css_class: str  # CSS class for styling
+
+
+class LogHighlighter:
+    def __init__(self):
+        self.patterns = [
+            LogPattern(
+                level=LogLevel.ERROR,
+                patterns=[
+                    re.compile(
+                        r"\b(error|exception|failed|traceback|attributeerror)\b",
+                        re.IGNORECASE,
+                    ),
+                    re.compile(r"❌|\u274c"),  # Cross mark symbol
+                    re.compile(r"E\s+[\w.]+:"),  # Pytest error markers
+                ],
+                color="var(--error-color)",
+                symbol="🛑",
+                css_class="log-error",
+            ),
+            LogPattern(
+                level=LogLevel.WARNING,
+                patterns=[
+                    re.compile(r"\b(warn|warning|deprecated|notice)\b", re.IGNORECASE),
+                    re.compile(r"⚠️?"),  # Warning symbol
+                ],
+                color="var(--warning-color)",
+                symbol="⚠️",
+                css_class="log-warning",
+            ),
+            LogPattern(
+                level=LogLevel.FAILURE,
+                patterns=[
+                    re.compile(r"\b(fail(?:ed|ure)|assertion|assert)\b", re.IGNORECASE),
+                    re.compile(r"✗|×"),  # Failure symbols
+                ],
+                color="var(--error-color)",
+                symbol="❌",
+                css_class="log-failure",
+            ),
+            LogPattern(
+                level=LogLevel.INFO,
+                patterns=[
+                    re.compile(r"\b(info|✅|passed)\b", re.IGNORECASE),
+                    re.compile(r"ℹ️?"),  # Info symbol
+                ],
+                color="var(--info-color)",
+                symbol="ℹ️",
+                css_class="log-info",
+            ),
+            LogPattern(
+                level=LogLevel.DEBUG,
+                patterns=[re.compile(r"\b(debug)\b", re.IGNORECASE)],
+                color="var(--text-light)",
+                symbol="🔍",
+                css_class="log-debug",
+            ),
+        ]
+
+    def highlight_html(self, log_text: str) -> Dict:
+        """Highlight log text and return HTML with summary counts."""
+        if not log_text:
+            return {
+                "highlighted_text": "",
+                "summary": {},
+                "has_errors": False,
+                "has_warnings": False,
+            }
+
+        highlighted_lines = []
+        summary = {level: 0 for level in LogLevel}
+
+        for line in log_text.split("\n"):
+            line_html = line
+            line_matched = False
+
+            for pattern_group in self.patterns:
+                for pattern in pattern_group.patterns:
+                    if pattern.search(line):
+                        # Apply highlighting with HTML/CSS
+                        line_html = f'<span class="{pattern_group.css_class}">{pattern_group.symbol} {line}</span>'
+                        summary[pattern_group.level] += 1
+                        line_matched = True
+                        break
+                if line_matched:
+                    break
+
+            if not line_matched and line.strip():
+                # Default formatting for unmatched lines
+                line_html = f'<span class="log-default">{line}</span>'
+
+            highlighted_lines.append(line_html)
+
+        has_errors = summary[LogLevel.ERROR] > 0 or summary[LogLevel.FAILURE] > 0
+        has_warnings = summary[LogLevel.WARNING] > 0
+
+        return {
+            "highlighted_text": "<br>".join(highlighted_lines),
+            "summary": summary,
+            "has_errors": has_errors,
+            "has_warnings": has_warnings,
+        }
+
+
 def run_tests(*args):
     """Run pytest with HTML report generation."""
     try:
         # Ensure we're in the backend directory
         os.chdir(Path(__file__).parent)
+
+        # Initialize log highlighter
+        log_highlighter = LogHighlighter()
 
         # Parse command line arguments
         cli_args = parse_args()
@@ -204,10 +330,85 @@ def run_tests(*args):
         if True:  # Always generate the report as long as the command ran
             print("Generating HTML report...")
             # Extract test status information
+            def parse_test_summary(text, status_type):
+                """
+                Parse test summary text into a numeric count for a specific status type.
+
+                Args:
+                    text (str): Input text to parse
+                    status_type (str): Type of status to look for ('passed', 'failed', 'skipped', 'error')
+
+                Returns:
+                    int: Parsed numeric value (0 if none found)
+                """
+                text = text.lower().strip()
+                plural_status = (
+                    status_type + "s" if not status_type.endswith("s") else status_type
+                )
+                singular_status = (
+                    status_type[:-1] if status_type.endswith("s") else status_type
+                )
+
+                # Common patterns to match - order matters (most specific to least specific)
+                patterns = [
+                    rf"(\d+)\s*{plural_status}",  # "3 failed"
+                    rf"(\d+)\s*{singular_status}",  # "3 fail"
+                    rf"{plural_status}\s*:\s*(\d+)",  # "failed: 5"
+                    rf"{singular_status}\s*:\s*(\d+)",  # "fail: 5"
+                    rf"{plural_status}\s*\((\d+)\)",  # "failed(5)"
+                    rf"{singular_status}\s*\((\d+)\)",  # "fail(5)"
+                ]
+
+                # Special cases for zero/none/all
+                if status_type in ["failed", "error", "errors"]:
+                    if any(
+                        x in text
+                        for x in [
+                            f"no {plural_status}",
+                            f"no {singular_status}",
+                            "all passed",
+                        ]
+                    ):
+                        return 0
+
+                # Try all patterns
+                for pattern in patterns:
+                    match = re.search(pattern, text)
+                    if match:
+                        try:
+                            return int(match.group(1))
+                        except (ValueError, IndexError):
+                            continue
+
+                # If just the word appears and it's an error/failure, count as 1
+                if status_type in ["failed", "error", "errors"]:
+                    if singular_status in text or plural_status in text:
+                        return 1
+
+                return 0
+
+            # Parse test results more accurately
             test_status = "Unknown"
-            if "FAILED" in result.stdout:
+            passed_count = 0
+            failed_count = 0
+            skipped_count = 0
+            error_count = 0
+
+            # Look through all lines for test summary information
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if "===" in line and " in " in line:  # Summary line
+                    passed_count = parse_test_summary(line, "passed")
+                    failed_count = parse_test_summary(line, "failed")
+                    skipped_count = parse_test_summary(line, "skipped")
+                    error_count = parse_test_summary(line, "error")
+
+            # Determine overall test status
+            if error_count > 0:
+                test_status = "Error"
+            elif failed_count > 0:
                 test_status = "Failed"
-            elif "PASSED" in result.stdout:
+            elif passed_count > 0:
                 test_status = "Passed"
             elif result.returncode != 0:
                 test_status = "Error"
@@ -267,7 +468,7 @@ def run_tests(*args):
 
                     # Get the test name from the next line
                     test_name_line = (
-                        all_lines[i + 1].strip() if i + 1 < len(all_lines) else ""
+                        all_lines[i + 1].strip() if (i + 1 < len(all_lines)) else ""
                     )
 
                     # Create new test block
@@ -338,7 +539,7 @@ def run_tests(*args):
                     if "test_" in test_name:
                         test_func = (
                             test_name.split("test_")[1].split()[0]
-                            if "test_" in test_name
+                            if ("test_" in test_name)
                             else "unknown"
                         )
                         test_name = "test_" + test_func
@@ -395,8 +596,20 @@ def run_tests(*args):
                             + "\n".join(secondary_lines)
                         )
 
+                    # Process log lines and initialize log-related variables
+                    log_summary = {}
+                    has_log_errors = False
+                    has_log_warnings = False
+
                     if log_lines:
-                        captured_logs = "\n".join(log_lines)
+                        log_text = "\n".join(log_lines)
+                        highlighted_logs = log_highlighter.highlight_html(log_text)
+                        captured_logs = highlighted_logs["highlighted_text"]
+                        log_summary = highlighted_logs["summary"]
+                        has_log_errors = highlighted_logs["has_errors"]
+                        has_log_warnings = highlighted_logs["has_warnings"]
+                    else:
+                        captured_logs = ""
 
                     # Create the test info record with enhanced error information
                     test_info = {
@@ -407,7 +620,10 @@ def run_tests(*args):
                         "primary_error": primary_error,
                         "secondary_error": secondary_error,
                         "logs": captured_logs,
-                        "summary": f"Test failed with {primary_error.splitlines()[0] if primary_lines else 'an unknown error'}",
+                        "log_summary": log_summary,
+                        "has_log_errors": has_log_errors,
+                        "has_log_warnings": has_log_warnings,
+                        "summary": f"Test failed with {primary_error.splitlines()[0] if (primary_lines) else 'an unknown error'}",
                         "output": content,
                     }
                     tests.append(test_info)
@@ -419,7 +635,7 @@ def run_tests(*args):
                     content = "\n".join(block["lines"])
                     section_name = (
                         "Test Summary"
-                        if block.get("is_summary", False)
+                        if (block.get("is_summary", False))
                         else "Failures Section"
                     )
 
@@ -508,6 +724,68 @@ def run_tests(*args):
             }
             """
 
+            # Add CSS for log highlighting
+            log_highlight_css = """
+            .log-error {
+                color: var(--error-color);
+                font-weight: bold;
+                display: block;
+                padding: 2px 0;
+            }
+            .log-warning {
+                color: var(--warning-color);
+                display: block;
+                padding: 2px 0;
+            }
+            .log-failure {
+                color: var(--error-color);
+                display: block;
+                padding: 2px 0;
+            }
+            .log-info {
+                color: var(--info-color);
+                display: block;
+                padding: 2px 0;
+            }
+            .log-debug {
+                color: var(--text-light);
+                display: block;
+                padding: 2px 0;
+            }
+            .log-default {
+                display: block;
+                padding: 2px 0;
+            }
+            .log-summary {
+                display: flex;
+                justify-content: space-between;
+                padding: 5px;
+                background-color: var(--bg-light);
+                border-bottom: 1px solid var(--border-color);
+                font-size: 0.9rem;
+            }
+            .log-summary-item {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 4px;
+                margin-right: 5px;
+            }
+            .log-summary-error {
+                background-color: var(--error-light);
+                color: var(--error-color);
+            }
+            .log-summary-warning {
+                background-color: var(--warning-light);
+                color: var(--warning-color);
+            }
+            .log-summary-info {
+                background-color: var(--info-light);
+                color: var(--info-color);
+            }
+            """
+
+            additional_css += log_highlight_css
+
             # Generate the test results HTML with our enhanced template
             test_results_html = ""
             for test in tests:
@@ -546,9 +824,31 @@ def run_tests(*args):
 
                 logs_section = ""
                 if test.get("logs"):
+                    # Add summary counts to the logs section
+                    log_summary_html = ""
+                    if test.get("log_summary"):
+                        summary = test.get("log_summary")
+                        log_summary_html = '<div class="log-summary">'
+
+                        # Add summary items for relevant log levels
+                        if summary.get(LogLevel.ERROR, 0) > 0:
+                            log_summary_html += f'<span class="log-summary-item log-summary-error">🛑 Errors: {summary.get(LogLevel.ERROR, 0)}</span>'
+
+                        if summary.get(LogLevel.WARNING, 0) > 0:
+                            log_summary_html += f'<span class="log-summary-item log-summary-warning">⚠️ Warnings: {summary.get(LogLevel.WARNING, 0)}</span>'
+
+                        if summary.get(LogLevel.FAILURE, 0) > 0:
+                            log_summary_html += f'<span class="log-summary-item log-summary-error">❌ Failures: {summary.get(LogLevel.FAILURE, 0)}</span>'
+
+                        if summary.get(LogLevel.INFO, 0) > 0:
+                            log_summary_html += f'<span class="log-summary-item log-summary-info">ℹ️ Info: {summary.get(LogLevel.INFO, 0)}</span>'
+
+                        log_summary_html += "</div>"
+
                     logs_section = f"""
                     <div class="logs-section">
                         <strong>Captured Logs:</strong>
+                        {log_summary_html}
                         <div>{test["logs"]}</div>
                     </div>
                     """
@@ -698,7 +998,7 @@ def run_tests(*args):
             text-align: left;
         }}
         th {{
-            background-color: var(--bg-light);
+            background-color: var (--bg-light);
             font-weight: 600;
         }}
         tr:hover {{
@@ -887,19 +1187,19 @@ def run_tests(*args):
             <div class="card-body">
                 <div class="summary">
                     <div class="summary-item summary-all">
-                        <span class="summary-number">{len([t for t in tests if t.get('is_test', True) and t['status'] != 'info'])}</span>
+                        <span class="summary-number">{passed_count + failed_count + skipped_count + error_count}</span>
                         <span>Total Tests</span>
                     </div>
                     <div class="summary-item summary-passed">
-                        <span class="summary-number">{sum(1 for t in tests if t['status'] == 'passed')}</span>
+                        <span class="summary-number">{passed_count}</span>
                         <span>Passed</span>
                     </div>
                     <div class="summary-item summary-failed">
-                        <span class="summary-number">{sum(1 for t in tests if t['status'] == 'failed')}</span>
+                        <span class="summary-number">{failed_count + error_count}</span>
                         <span>Failed</span>
                     </div>
                     <div class="summary-item summary-skipped">
-                        <span class="summary-number">{sum(1 for t in tests if t['status'] == 'skipped')}</span>
+                        <span class="summary-number">{skipped_count}</span>
                         <span>Skipped</span>
                     </div>
                 </div>
@@ -971,7 +1271,7 @@ def run_tests(*args):
 
                 <button class="collapsible">Show Error Output</button>
                 <div class="content">
-                    <pre>{result.stderr if result.stderr else "No errors reported."}</pre>
+                    <pre>{result.stderr if (result.stderr) else "No errors reported."}</pre>
                 </div>
             </div>
         </div>
@@ -1055,7 +1355,9 @@ def run_tests(*args):
                     f.write(f"Category: {cli_args.category or 'All'}\n")
                     f.write(f"Marker: {cli_args.marker or 'None'}\n")
                     f.write(f"Keyword: {cli_args.keyword or 'None'}\n")
-                    f.write(f"Status: {'Failed' if result.returncode else 'Passed'}\n")
+                    f.write(
+                        f"Status: {'Failed' if (result.returncode) else 'Passed'}\n"
+                    )
 
                     # Extract test counts from output
                     for line in result.stdout.splitlines():
@@ -1064,20 +1366,29 @@ def run_tests(*args):
                             break
                     f.write(f"=======================================\n")
 
-                print(f"\n{'❌ Some tests failed.' if result.returncode else '✅ All tests passed.'}")
-                print(f"Check the HTML report at {report_path} for details")
+                # Enhanced test summary output
+                print(f"\nTest Run Summary:")
+                print("=====================================")
+                print(f"Status: {'❌ Failed' if (result.returncode) else '✅ Passed'}")
+                print(
+                    f"Total Tests: {passed_count + failed_count + skipped_count + error_count}"
+                )
+                print(f"Passed: {passed_count} ✓")
+                print(f"Failed: {failed_count + error_count} ✗")
+                print(f"Skipped: {skipped_count} ⚠")
 
-                # Print basic test summary
+                # Get duration
                 duration = "unknown"
                 for line in result.stdout.splitlines():
                     if " in " in line and line.strip().endswith("s"):
                         duration = line.split("in ")[-1].strip()
                         break
 
-                print("\nTest Summary:")
-                print(f"  - Duration: {duration}")
-                print(f"  - Category: {cli_args.category or 'All'}")
-                print(f"  - Marker: {cli_args.marker or 'None'}")
+                print(f"Duration: {duration}")
+                print(f"Category: {cli_args.category or 'All'}")
+                print(f"Marker: {cli_args.marker or 'None'}")
+                print("=====================================")
+                print(f"\nHTML report generated at: {report_path}")
 
                 # Open the report in browser if requested and not explicitly disabled
                 should_open_browser = cli_args.browser or (not cli_args.no_browser and not args)

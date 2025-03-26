@@ -37,17 +37,15 @@ async def engine():
     ssl_context = create_default_context()
     ssl_context.load_verify_locations(CA_CERT_PATH)
 
-    # Create engine with SSL context - using "ssl" parameter instead of "ssl_context"
-    db_engine = create_async_engine(
-        DATABASE_URL,
-        connect_args={
-            "ssl": ssl_context
-        },
-        echo=True
+    # Create engine with SSL context
+    engine = create_async_engine(
+        DATABASE_URL, connect_args={"ssl": ssl_context}, echo=True
     )
 
-    yield db_engine
-    await db_engine.dispose()
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 @pytest.fixture(scope="module")
 async def async_session(engine):
