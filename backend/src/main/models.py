@@ -1,15 +1,24 @@
-from sqlalchemy import (
-    Column, String, Boolean, DateTime, ForeignKey, Integer, Float,
-    Table, event, and_, or_, text, func
-)
-from sqlalchemy.future import select
+from sqlalchemy import String, Column, DateTime, Integer, Boolean, Float, ForeignKey, Table, text, func, event
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import relationship, declarative_mixin, declared_attr
+from sqlalchemy.sql.expression import cast
+from sqlalchemy.sql.elements import Cast
+from typing import Union
 from sqlalchemy.orm import declarative_base, registry, Session
 from enum import StrEnum
 from datetime import datetime, timezone, UTC, timedelta
 from nanoid import generate
-from src.main.schema import AppointmentStatus
+from enum import StrEnum
+import logging
+
+logger = logging.getLogger(__name__)
+
+class AppointmentStatus(StrEnum):
+    SCHEDULED = 'SCHEDULED'
+    CONFIRMED = 'CONFIRMED'
+    CANCELLED = 'CANCELLED'
+    COMPLETED = 'COMPLETED'
+    DECLINED = 'DECLINED'
 
 # Custom Enum Type for SQLAlchemy
 class EnumType(TypeDecorator):
@@ -112,6 +121,7 @@ appointment_attendees = Table(
 )
 
 class User(TimestampMixin, Base):
+    """User model with authentication support."""
     __tablename__ = "users"
     __table_args__ = {'extend_existing': True}
 
@@ -119,7 +129,7 @@ class User(TimestampMixin, Base):
     sequential_id = Column(Integer, server_default=text("nextval('user_sequential_id_seq')"), unique=True)
     username = Column(String, unique=True)
     email = Column(String, unique=True)
-    password = Column(String)
+    password = Column(String)  # For testing, store raw password for admin
     first_name = Column(String)
     last_name = Column(String)
     enabled = Column(Boolean, default=True)
@@ -142,6 +152,9 @@ class User(TimestampMixin, Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+
+    def __repr__(self):
+        return f"<User(id={self.id}, username={self.username}, is_admin={self.is_admin})>"
 
 class ClientCategory(StrEnum):
     NEW = "NEW"
@@ -174,6 +187,9 @@ class Client(Base):
     service_packages = relationship("ServicePackage", back_populates="client", cascade="all, delete-orphan")
     service_history = relationship("ServiceHistory", back_populates="client", cascade="all, delete-orphan")
 
+    def __repr__(self):
+        return f"<Client(id={self.id}, user_id={self.user_id}, status={self.status})>"
+
 class Appointment(TimestampMixin, Base):
     __tablename__ = "appointments"
     __table_args__ = {'extend_existing': True}
@@ -195,7 +211,7 @@ class Appointment(TimestampMixin, Base):
     )
 
     @property
-    def estimated_cost(self) -> float:
+    def estimated_cost(self) -> Union[float, Column, Cast]:
         return calculate_appointment_cost(self.serviceType, self.durationMinutes)
 
 class ServiceHistory(TimestampMixin, Base):
@@ -217,7 +233,7 @@ class ServiceHistory(TimestampMixin, Base):
     package_id = Column(String(21), ForeignKey('service_packages.id'), nullable=True)
 
     client = relationship("Client", back_populates="service_history")
-    package = relationship("ServicePackage", back_populates="services")
+    package = relationship("ServicePackage", back_populates="service_history")
 
 class ServicePackage(TimestampMixin, Base):
     __tablename__ = "service_packages"
@@ -227,6 +243,8 @@ class ServicePackage(TimestampMixin, Base):
     client_id = Column(String(21), ForeignKey('clients.id'), nullable=False)
     service_type = Column(EnumType(ServiceType), nullable=False)
     total_sessions = Column(Integer, nullable=False)
+    client = relationship("Client", back_populates="service_packages")
+    service_history = relationship("ServiceHistory", back_populates="package")
     sessions_remaining = Column(Integer, nullable=False)
     purchase_date = Column(DateTime(timezone=True), nullable=False)
     expiry_date = Column(DateTime(timezone=True), nullable=False)
@@ -235,16 +253,37 @@ class ServicePackage(TimestampMixin, Base):
     last_session_date = Column(DateTime(timezone=True), nullable=True)
     average_satisfaction = Column(Float, nullable=True)
 
-    client = relationship("Client", back_populates="service_packages")
-    services = relationship("ServiceHistory", back_populates="package")
+def calculate_appointment_cost(service_type: Union[ServiceType, Column], duration_minutes: Union[int, Column]) -> Union[float, Column, Cast]:
+    # Handle SQL expression case
+    if hasattr(service_type, 'is_clause_element'):
+        base_cost = 40.0  # Default cost for SQL expressions
+        default_duration = 30  # Default duration for SQL expressions
+        # Return the SQL expression directly as a Column type
+        return cast(base_cost * cast(duration_minutes, Float) / default_duration, Float)
 
-def calculate_appointment_cost(service_type: ServiceType, duration_minutes: int) -> float:
-    base_cost = ServiceType.get_base_cost(service_type)
-    default_duration = ServiceType.get_duration_minutes(service_type)
-    if duration_minutes != default_duration:
-        cost_ratio = duration_minutes / default_duration
-        return base_cost * cost_ratio
-    return base_cost
+    # Handle direct value case
+    service_instance = service_type if isinstance(service_type, ServiceType) else ServiceType(service_type)
+    base_cost = ServiceType.get_base_cost(service_instance)
+    default_duration = ServiceType.get_duration_minutes(service_instance)
+
+    if hasattr(duration_minutes, 'is_clause_element'):
+        # Return the SQL expression directly as a Column type
+        return cast(base_cost * cast(duration_minutes, Float) / default_duration, Float)
+
+    # Handle numeric value case
+    if hasattr(duration_minutes, 'is_clause_element'):
+        # Already handled above
+        return cast(base_cost * cast(duration_minutes, Float) / default_duration, Float)
+    else:
+        # Direct numeric value comparison is safe here
+        if isinstance(duration_minutes, int) or isinstance(duration_minutes, float):
+            duration_numeric = float(duration_minutes)
+            if duration_numeric != default_duration:
+                return float(base_cost * (duration_numeric / default_duration))
+            return float(base_cost)
+        else:
+            # This should not happen due to the checks above, but adding as a fallback
+            return cast(base_cost * cast(duration_minutes, Float) / default_duration, Float)
 
 def validate_appointment(mapper, connection, target):
     target.end_time = target.startTime + timedelta(minutes=target.durationMinutes)

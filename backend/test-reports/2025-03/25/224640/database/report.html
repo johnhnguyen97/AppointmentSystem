@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test Report - database - 2025-03-25 22:46:41</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-light: #dbeafe;
+            --success-color: #16a34a;
+            --success-light: #dcfce7;
+            --error-color: #dc2626;
+            --error-light: #fee2e2;
+            --warning-color: #d97706;
+            --warning-light: #fef3c7;
+            --info-color: #0891b2;
+            --info-light: #e0f2fe;
+            --text-color: #1f2937;
+            --text-light: #6b7280;
+            --bg-color: #ffffff;
+            --bg-light: #f9fafb;
+            --border-color: #e5e7eb;
+        }
+
+        /* ...existing CSS... */
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Test Report - database</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h2>Test Summary</h2>
+                <span>2025-03-25 22:46:41</span>
+            </div>
+            <div class="card-body">
+                <div class="summary">
+                    <div class="summary-item summary-all">
+                        <span class="summary-number">3</span>
+                        <span>Total Tests</span>
+                    </div>
+                    <div class="summary-item summary-passed">
+                        <span class="summary-number">0</span>
+                        <span>Passed</span>
+                    </div>
+                    <div class="summary-item summary-failed">
+                        <span class="summary-number">3</span>
+                        <span>Failed</span>
+                    </div>
+                    <div class="summary-item summary-skipped">
+                        <span class="summary-number">0</span>
+                        <span>Skipped</span>
+                    </div>
+                </div>
+
+                <table>
+                    <tr>
+                        <th>Category</th>
+                        <td>database</td>
+                    </tr>
+                    <tr>
+                        <th>Marker</th>
+                        <td>None</td>
+                    </tr>
+                    <tr>
+                        <th>Keyword</th>
+                        <td>None</td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td><span class="status-badge failed">Failed</span></td>
+                    </tr>
+                    <tr>
+                        <th>Return Code</th>
+                        <td>1</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Test Results</h2>
+            </div>
+            <div class="card-body">
+                <div class="filter-controls">
+                    <button class="filter-btn active" data-filter="all">
+                        <span class="icon"><i class="fas fa-list"></i></span>
+                        All Tests
+                    </button>
+                    <button class="filter-btn" data-filter="passed">
+                        <span class="icon"><i class="fas fa-check text-passed"></i></span>
+                        Passed
+                    </button>
+                    <button class="filter-btn" data-filter="failed">
+                        <span class="icon"><i class="fas fa-times text-failed"></i></span>
+                        Failed
+                    </button>
+                    <button class="filter-btn" data-filter="skipped">
+                        <span class="icon"><i class="fas fa-forward text-skipped"></i></span>
+                        Skipped
+                    </button>
+                </div>
+
+                <div id="test-results">
+                    
+                    <div class="test-details test-failed" data-status="failed">
+                        <div class="card-header collapsible">
+                            <span>
+                                <i class="fas fa-times text-failed"></i>
+                                tests/database/test_db_connection.py :: test_db_connection FAILED          [ 33%]
+                            </span>
+                            <span class="status-badge failed">Failed</span>
+                        </div>
+                        <div class="content">
+                            <div class="test-output"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="test-details test-failed" data-status="failed">
+                        <div class="card-header collapsible">
+                            <span>
+                                <i class="fas fa-times text-failed"></i>
+                                tests/database/test_db_connection.py :: test_user_table FAILED             [ 66%]
+                            </span>
+                            <span class="status-badge failed">Failed</span>
+                        </div>
+                        <div class="content">
+                            <div class="test-output"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="test-details test-failed" data-status="failed">
+                        <div class="card-header collapsible">
+                            <span>
+                                <i class="fas fa-times text-failed"></i>
+                                tests/database/test_db_connection.py :: test_admin_user_exists FAILED      [100%]
+                            </span>
+                            <span class="status-badge failed">Failed</span>
+                        </div>
+                        <div class="content">
+                            <div class="test-output">
+================================== FAILURES ===================================
+_____________________________ test_db_connection ______________________________
+tests\database\test_db_connection.py:68: in test_db_connection
+    async with engine.connect() as conn:
+E   AttributeError: 'async_generator' object has no attribute 'connect'
+
+During handling of the above exception, another exception occurred:
+tests\database\test_db_connection.py:75: in test_db_connection
+    pytest.fail(f"Database connection failed: {str(e)}")
+E   Failed: Database connection failed: 'async_generator' object has no attribute 'connect'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:74 \u274c Database connection failed: 'async_generator' object has no attribute 'connect'
+_______________________________ test_user_table _______________________________
+tests\database\test_db_connection.py:88: in test_user_table
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:98 \u274c User table query failed: 'async_generator' object has no attribute 'execute'
+___________________________ test_admin_user_exists ____________________________
+tests\database\test_db_connection.py:111: in test_admin_user_exists
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:126 \u274c Admin user verification failed: 'async_generator' object has no attribute 'execute'
+
+Test Run Summary
+===============
+Total: 3
+Passed: 0
+Failed: 3
+Skipped: 0
+Duration: 22:46:41
+=========================== short test summary info ===========================
+FAILED tests/database/test_db_connection.py::test_db_connection - Failed: Dat...
+FAILED tests/database/test_db_connection.py::test_user_table - AttributeError...
+FAILED tests/database/test_db_connection.py::test_admin_user_exists - Attribu...
+============================== 3 failed in 0.39s ==============================</div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Raw Test Output</h2>
+            </div>
+            <div class="card-body">
+                <button class="collapsible">Show Raw Test Output</button>
+                <div class="content">
+                    <pre>============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-8.3.5, pluggy-1.5.0 -- C:\Users\jnguyen\Documents\Work\Projects\appointmentsystem\backend\venv\Scripts\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.0', 'Platform': 'Windows-11-10.0.26100-SP0', 'Packages': {'pytest': '8.3.5', 'pluggy': '1.5.0'}, 'Plugins': {'anyio': '4.9.0', 'asyncio': '0.21.2', 'cov': '4.1.0', 'html': '2.1.1', 'metadata': '3.1.1'}, 'JAVA_HOME': 'C:\\Program Files\\Java\\jdk-23'}
+rootdir: C:\Users\jnguyen\Documents\Work\Projects\appointmentsystem\backend
+configfile: pytest.ini
+plugins: anyio-4.9.0, asyncio-0.21.2, cov-4.1.0, html-2.1.1, metadata-3.1.1
+asyncio: mode=Mode.STRICT
+collecting ... collected 3 items
+
+tests/database/test_db_connection.py::test_db_connection FAILED          [ 33%]
+tests/database/test_db_connection.py::test_user_table FAILED             [ 66%]
+tests/database/test_db_connection.py::test_admin_user_exists FAILED      [100%]
+
+================================== FAILURES ===================================
+_____________________________ test_db_connection ______________________________
+tests\database\test_db_connection.py:68: in test_db_connection
+    async with engine.connect() as conn:
+E   AttributeError: 'async_generator' object has no attribute 'connect'
+
+During handling of the above exception, another exception occurred:
+tests\database\test_db_connection.py:75: in test_db_connection
+    pytest.fail(f"Database connection failed: {str(e)}")
+E   Failed: Database connection failed: 'async_generator' object has no attribute 'connect'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:74 \u274c Database connection failed: 'async_generator' object has no attribute 'connect'
+_______________________________ test_user_table _______________________________
+tests\database\test_db_connection.py:88: in test_user_table
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:98 \u274c User table query failed: 'async_generator' object has no attribute 'execute'
+___________________________ test_admin_user_exists ____________________________
+tests\database\test_db_connection.py:111: in test_admin_user_exists
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:126 \u274c Admin user verification failed: 'async_generator' object has no attribute 'execute'
+
+Test Run Summary
+===============
+Total: 3
+Passed: 0
+Failed: 3
+Skipped: 0
+Duration: 22:46:41
+=========================== short test summary info ===========================
+FAILED tests/database/test_db_connection.py::test_db_connection - Failed: Dat...
+FAILED tests/database/test_db_connection.py::test_user_table - AttributeError...
+FAILED tests/database/test_db_connection.py::test_admin_user_exists - Attribu...
+============================== 3 failed in 0.39s ==============================
+</pre>
+                </div>
+
+                <button class="collapsible">Show Error Output</button>
+                <div class="content">
+                    <pre>No errors reported.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Collapsible sections
+        document.addEventListener('DOMContentLoaded', function() {
+            var coll = document.getElementsByClassName("collapsible");
+            for (var i = 0; i < coll.length; i++) {
+                coll[i].addEventListener("click", function() {
+                    this.classList.toggle("active");
+                    var content = this.nextElementSibling;
+                    if (content.style.display === "block") {
+                        content.style.display = "none";
+                    } else {
+                        content.style.display = "block";
+                    }
+                });
+            }
+
+            // Filter functionality
+            var filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    filterBtns.forEach(function(innerBtn) {
+                        innerBtn.classList.remove('active');
+                    });
+
+                    // Add active class to clicked button
+                    this.classList.add('active');
+
+                    // Get filter value
+                    var filter = this.getAttribute('data-filter');
+
+                    // Filter test results
+                    var testResults = document.querySelectorAll('#test-results .test-details');
+                    testResults.forEach(function(test) {
+                        if (filter === 'all' || test.getAttribute('data-status') === filter) {
+                            test.style.display = 'block';
+                        } else {
+                            test.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

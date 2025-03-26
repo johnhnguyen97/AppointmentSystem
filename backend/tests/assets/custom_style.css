@@ -1,0 +1,34 @@
+
+/* Minimal pytest-html styling */
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  min-width: 800px;
+  color: #999;
+}
+h1 {
+  font-size: 24px;
+  color: black;
+}
+h2 {
+  font-size: 16px;
+  color: black;
+}
+p {
+  color: black;
+}
+a {
+  color: #999;
+}
+table {
+  border-collapse: collapse;
+}
+.passed {
+  color: green;
+}
+.failed, .error {
+  color: red;
+}
+.skipped {
+  color: orange;
+}

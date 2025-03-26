@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test Report - database - 2025-03-25 22:35:11</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .passed { color: green; font-weight: bold; }
+        .failed { color: red; font-weight: bold; }
+        .skipped { color: orange; font-weight: bold; }
+        .error { color: darkred; font-weight: bold; }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .summary {
+            background-color: #e9f7ef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .status-failed {
+            background-color: #FFEBEE;
+        }
+        .status-passed {
+            background-color: #E8F5E9;
+        }
+        .test-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .test-info div {
+            flex: 1;
+            min-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Report</h1>
+
+    <div class="summary status-failed">
+        <h2>Test Summary</h2>
+        <div class="test-info">
+            <div>
+                <strong>Date/Time:</strong> 2025-03-25 22:35:11<br>
+                <strong>Category:</strong> database<br>
+                <strong>Marker:</strong> None
+            </div>
+            <div>
+                <strong>Status:</strong> <span class="failed">Failed</span><br>
+                <strong>Return Code:</strong> 1<br>
+                <strong>Generated:</strong> 2025-03-25 22:35:11
+            </div>
+        </div>
+    </div>
+
+    <h2>Test Output</h2>
+    <pre>============================= test session starts =============================
+platform win32 -- Python 3.12.0, pytest-8.3.5, pluggy-1.5.0 -- C:\Users\jnguyen\Documents\Work\Projects\appointmentsystem\backend\venv\Scripts\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.0', 'Platform': 'Windows-11-10.0.26100-SP0', 'Packages': {'pytest': '8.3.5', 'pluggy': '1.5.0'}, 'Plugins': {'anyio': '4.9.0', 'asyncio': '0.21.2', 'cov': '4.1.0', 'html': '2.1.1', 'metadata': '3.1.1'}, 'JAVA_HOME': 'C:\\Program Files\\Java\\jdk-23'}
+rootdir: C:\Users\jnguyen\Documents\Work\Projects\appointmentsystem\backend
+configfile: pytest.ini
+plugins: anyio-4.9.0, asyncio-0.21.2, cov-4.1.0, html-2.1.1, metadata-3.1.1
+asyncio: mode=Mode.STRICT
+collecting ... collected 3 items
+
+tests/database/test_db_connection.py::test_db_connection <span class='failed'>FAILED</span>          [ 33%]
+tests/database/test_db_connection.py::test_user_table <span class='failed'>FAILED</span>             [ 66%]
+tests/database/test_db_connection.py::test_admin_user_exists <span class='failed'>FAILED</span>      [100%]
+
+================================== FAILURES ===================================
+_____________________________ test_db_connection ______________________________
+tests\database\test_db_connection.py:68: in test_db_connection
+    async with engine.connect() as conn:
+E   AttributeError: 'async_generator' object has no attribute 'connect'
+
+During handling of the above exception, another exception occurred:
+tests\database\test_db_connection.py:75: in test_db_connection
+    pytest.fail(f"Database connection failed: {str(e)}")
+E   Failed: Database connection failed: 'async_generator' object has no attribute 'connect'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:74 \u274c Database connection failed: 'async_generator' object has no attribute 'connect'
+_______________________________ test_user_table _______________________________
+tests\database\test_db_connection.py:88: in test_user_table
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:98 \u274c User table query failed: 'async_generator' object has no attribute 'execute'
+___________________________ test_admin_user_exists ____________________________
+tests\database\test_db_connection.py:111: in test_admin_user_exists
+    result = await async_session.execute(text(query))
+E   AttributeError: 'async_generator' object has no attribute 'execute'
+------------------------------ Captured log call ------------------------------
+ERROR    test_db_connection:test_db_connection.py:126 \u274c Admin user verification failed: 'async_generator' object has no attribute 'execute'
+
+Test Run Summary
+===============
+Total: 3
+Passed: 0
+Failed: 3
+Skipped: 0
+Duration: 22:35:11
+=========================== short test summary info ===========================
+<span class='failed'>FAILED</span> tests/database/test_db_connection.py::test_db_connection - Failed: Dat...
+<span class='failed'>FAILED</span> tests/database/test_db_connection.py::test_user_table - AttributeError...
+<span class='failed'>FAILED</span> tests/database/test_db_connection.py::test_admin_user_exists - Attribu...
+============================== 3 failed in 0.61s ==============================
+</pre>
+
+    <h2>Error Output</h2>
+    <pre>No errors reported.</pre>
+</body>
+</html>

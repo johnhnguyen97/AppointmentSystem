@@ -1,70 +1,56 @@
-from typing import Any, Optional, AsyncGenerator
+"""
+Custom types and context managers for the application.
+"""
+from typing import Optional, TYPE_CHECKING
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
-from strawberry.fastapi import BaseContext
-from src.main.auth import decode_token, get_current_user
-import logging
+from strawberry.types import Info
 
-logger = logging.getLogger(__name__)
+class CustomContext:
+    """Custom context for GraphQL requests."""
 
-class CustomContext(BaseContext):
     def __init__(
         self,
         session: AsyncSession,
-        request: Optional[Request] = None,
-        current_user: Optional[Any] = None,
-        get_current_user_override: Optional[AsyncGenerator[Any, None]] = None
+        request: Request,
+        request_id: str
     ):
-        super().__init__()
         self.session = session
         self.request = request
-        self._current_user = current_user
-        self.get_current_user_override = get_current_user_override
+        self.request_id = request_id
+        self._current_user = None
+
+    @property
+    async def current_user(self):
+        """Get the current authenticated user."""
+        if not hasattr(self, '_current_user'):
+            # Lazy load user from auth headers
+            if TYPE_CHECKING:
+                from src.main.auth import get_current_user
+            else:
+                from src.main.auth import get_current_user  # type: ignore
+            try:
+                auth_header = self.request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+                    self._current_user = await get_current_user(
+                        session=self.session,
+                        token=token
+                    )
+                else:
+                    self._current_user = None
+            except Exception:
+                self._current_user = None
+        return self._current_user
 
     async def __aenter__(self):
+        """Enter async context."""
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        try:
+        """Exit async context."""
+        if self.session:
             if exc_type is not None:
+                # Rollback on error
                 await self.session.rollback()
-            else:
-                await self.session.commit()
-        finally:
             await self.session.close()
-
-    @property
-    async def current_user(self) -> Optional[Any]:
-        """Get the current authenticated user"""
-        if self._current_user:
-            return self._current_user
-
-        if self.get_current_user_override:
-            self._current_user = await self.get_current_user_override.__anext__()
-            return self._current_user
-
-        if not self.request:
-            logger.error("No request object in context")
-            return None
-
-        auth_header = self.request.headers.get('Authorization')
-        if not auth_header:
-            logger.error("No Authorization header present")
-            return None
-        if not auth_header.startswith('Bearer '):
-            logger.error("Authorization header does not start with 'Bearer '")
-            return None
-
-        token = auth_header.split(' ')[1]
-        try:
-            user_id = decode_token(token)
-            if user_id:
-                self._current_user = await get_current_user(None, self.session, token)
-                return self._current_user
-            else:
-                logger.error("Token decoded but no user_id found")
-        except Exception as e:
-            logger.error(f"Error validating token: {str(e)}")
-            raise
-
-        return None
