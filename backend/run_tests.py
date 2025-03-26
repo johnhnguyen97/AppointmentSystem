@@ -212,56 +212,369 @@ def run_tests(*args):
             elif result.returncode != 0:
                 test_status = "Error"
 
-            # Process test results to extract individual test data
+            # Process test results to extract individual test data with enhanced parsing
             tests = []
-            current_test = None
-            collecting_output = False
-            test_output = []
+            all_lines = result.stdout.splitlines()
 
-            for line in result.stdout.splitlines():
-                # Start of a new test
-                if line.strip().startswith("tests/") and "::" in line:
-                    # Save previous test if exists
-                    if current_test:
-                        current_test["output"] = "\n".join(test_output)
-                        tests.append(current_test)
-                    test_output = []
+            # Enhanced test parsing logic with focus on db connection errors and multi-level exceptions
+            i = 0
+            test_blocks = []
+            current_block = {"lines": [], "start_line": 0, "is_test": False}
+            in_failures_section = False
 
-                    # Extract test info
-                    parts = line.strip().split("::")
-                    file_path = parts[0]
-                    test_name = parts[1] if len(parts) > 1 else "Unknown test"
+            # Add markers to help parse pytest output patterns
+            exception_markers = [
+                "E       ",
+                "ERROR",
+                "FAILED",
+                "Failed:",
+                "AssertionError",
+                "AttributeError",
+            ]
+            log_markers = ["Captured log call", "Captured stdout", "Captured stderr"]
 
-                    # Determine result
-                    result_status = "unknown"
-                    if "PASSED" in line:
-                        result_status = "passed"
-                    elif "FAILED" in line:
-                        result_status = "failed"
-                    elif "SKIPPED" in line:
-                        result_status = "skipped"
+            while i < len(all_lines):
+                line = all_lines[i].strip()
 
-                    # Create new test record
-                    current_test = {
-                        "file": file_path,
-                        "name": test_name,
-                        "status": result_status,
-                        "output": ""
+                # Detect the FAILURES section header
+                if line.startswith("=") and "FAILURES" in line:
+                    in_failures_section = True
+
+                    # Save the previous block if it exists
+                    if current_block["lines"]:
+                        test_blocks.append(current_block)
+
+                    # Start a new block for failures section header
+                    current_block = {
+                        "lines": [all_lines[i]],
+                        "start_line": i,
+                        "is_test": False,
+                        "is_section_header": True,
                     }
-                    collecting_output = True
-                # For test line collection
-                elif collecting_output and current_test:
-                    test_output.append(line)
+                    i += 1
+                    continue
 
-            # Add the last test if exists
-            if current_test:
-                current_test["output"] = "\n".join(test_output)
-                tests.append(current_test)
+                # Look for test name underlined (common pytest pattern for test start)
+                elif (
+                    in_failures_section
+                    and line.startswith("_")
+                    and i + 1 < len(all_lines)
+                    and not all_lines[i + 1].strip().startswith("_")
+                ):
+                    # This is a test name header
+                    if current_block["lines"]:
+                        test_blocks.append(current_block)
+
+                    # Get the test name from the next line
+                    test_name_line = (
+                        all_lines[i + 1].strip() if i + 1 < len(all_lines) else ""
+                    )
+
+                    # Create new test block
+                    current_block = {
+                        "lines": [all_lines[i], test_name_line],
+                        "start_line": i,
+                        "is_test": True,
+                        "test_name": test_name_line,
+                    }
+                    i += 2  # Skip the test name line
+                    continue
+
+                # Detect log capture section within a test
+                elif any(marker in line for marker in log_markers):
+                    # Keep in the same block but mark the line for special processing
+                    current_block["lines"].append("### LOG CAPTURE START ###")
+                    current_block["lines"].append(all_lines[i])
+                    i += 1
+                    continue
+
+                # Detect "short test summary info" section
+                elif line.startswith("=") and "short test summary info" in line:
+                    in_failures_section = False
+                    if current_block["lines"]:
+                        test_blocks.append(current_block)
+
+                    current_block = {
+                        "lines": [all_lines[i]],
+                        "start_line": i,
+                        "is_test": False,
+                        "is_summary": True,
+                    }
+                    i += 1
+                    continue
+
+                # Default: add to current block
+                else:
+                    current_block["lines"].append(all_lines[i])
+                    i += 1
+
+            # Add the last block
+            if current_block["lines"]:
+                test_blocks.append(current_block)
+
+            # Second pass: process blocks into proper test records
+            for block_idx, block in enumerate(test_blocks):
+                if block.get("is_test", False):
+                    # Process a test failure block
+                    content = "\n".join(block["lines"])
+
+                    # Extract file path and line number
+                    file_path = "Unknown"
+                    line_number = "?"
+                    test_name = block.get("test_name", "Unknown Test")
+
+                    # Find the first line with a file path
+                    for line in block["lines"]:
+                        if "tests/" in line and ".py:" in line:
+                            parts = line.split(".py:")
+                            if len(parts) > 1:
+                                file_path = parts[0] + ".py"
+                                line_parts = parts[1].split(":", 1)
+                                if line_parts and line_parts[0].isdigit():
+                                    line_number = line_parts[0]
+                                break
+
+                    # Extract the test function name
+                    if "test_" in test_name:
+                        test_func = (
+                            test_name.split("test_")[1].split()[0]
+                            if "test_" in test_name
+                            else "unknown"
+                        )
+                        test_name = "test_" + test_func
+
+                    # Extract primary error and secondary errors
+                    primary_error = ""
+                    secondary_error = ""
+                    captured_logs = ""
+
+                    in_primary = False
+                    in_secondary = False
+                    in_logs = False
+
+                    primary_lines = []
+                    secondary_lines = []
+                    log_lines = []
+
+                    for line in block["lines"]:
+                        if "E   " in line:
+                            # This is an error line
+                            if "During handling of the above exception" in line:
+                                in_primary = False
+                                in_secondary = True
+                                continue
+
+                            if in_secondary:
+                                secondary_lines.append(line)
+                            else:
+                                in_primary = True
+                                primary_lines.append(line)
+
+                        elif "### LOG CAPTURE START ###" in line:
+                            in_logs = True
+                            in_primary = False
+                            in_secondary = False
+                            continue
+
+                        elif in_logs:
+                            log_lines.append(line)
+
+                        elif in_primary:
+                            primary_lines.append(line)
+
+                        elif in_secondary:
+                            secondary_lines.append(line)
+
+                    # Format the errors and logs
+                    if primary_lines:
+                        primary_error = "\n".join(primary_lines)
+
+                    if secondary_lines:
+                        secondary_error = (
+                            "During handling of the above exception, another exception occurred:\n"
+                            + "\n".join(secondary_lines)
+                        )
+
+                    if log_lines:
+                        captured_logs = "\n".join(log_lines)
+
+                    # Create the test info record with enhanced error information
+                    test_info = {
+                        "file": file_path,
+                        "line": line_number,
+                        "name": test_name,
+                        "status": "failed",
+                        "primary_error": primary_error,
+                        "secondary_error": secondary_error,
+                        "logs": captured_logs,
+                        "summary": f"Test failed with {primary_error.splitlines()[0] if primary_lines else 'an unknown error'}",
+                        "output": content,
+                    }
+                    tests.append(test_info)
+
+                elif block.get("is_section_header", False) or block.get(
+                    "is_summary", False
+                ):
+                    # These are section headers, we can keep them as context
+                    content = "\n".join(block["lines"])
+                    section_name = (
+                        "Test Summary"
+                        if block.get("is_summary", False)
+                        else "Failures Section"
+                    )
+
+                    test_info = {
+                        "file": "Test Report",
+                        "name": section_name,
+                        "status": "info",
+                        "summary": section_name,
+                        "output": content,
+                    }
+                    tests.append(test_info)
+                elif block_idx == 0:
+                    # This is likely the test setup/configuration block
+                    content = "\n".join(block["lines"])
+                    test_info = {
+                        "file": "Test Setup",
+                        "name": "Configuration",
+                        "status": "info",
+                        "summary": "Test configuration and setup",
+                        "output": content,
+                    }
+                    tests.append(test_info)
+                else:
+                    # Other miscellaneous blocks
+                    content = "\n".join(block["lines"])
+                    test_info = {
+                        "file": "Other",
+                        "name": f"Block {block_idx}",
+                        "status": "info",
+                        "summary": "Additional test information",
+                        "output": content,
+                    }
+                    tests.append(test_info)
+
+            # Update the test template to better display database connection errors
+            test_template = """
+            <div class="test-details test-{status}" data-status="{status}">
+                <div class="card-header collapsible">
+                    <span>
+                        <span class="icon">
+                            <i class="fas {icon_class}"></i>
+                        </span>
+                        {file}:{line} :: {name}
+                    </span>
+                    <span class="status-badge {status}">{status_text}</span>
+                </div>
+                <div class="content">
+                    <div class="test-summary"><strong>Summary:</strong> {summary}</div>
+
+                    {primary_error_section}
+                    {secondary_error_section}
+                    {logs_section}
+
+                    <div class="test-output-header">Full Test Output:</div>
+                    <div class="test-output">{output}</div>
+                </div>
+            </div>
+            """
+
+            # Update the CSS to better handle the error display
+            additional_css = """
+            .test-output-header {
+                font-weight: bold;
+                margin-top: 10px;
+                padding: 5px;
+                background-color: var(--bg-light);
+                border-top: 1px solid var(--border-color);
+            }
+            .error-section {
+                background-color: var(--error-light);
+                padding: 10px;
+                margin: 5px 0;
+                border-radius: 4px;
+                border-left: 3px solid var(--error-color);
+                white-space: pre-wrap;
+                font-family: monospace;
+            }
+            .logs-section {
+                background-color: var(--info-light);
+                padding: 10px;
+                margin: 5px 0;
+                border-radius: 4px;
+                border-left: 3px solid var(--info-color);
+                white-space: pre-wrap;
+                font-family: monospace;
+            }
+            """
+
+            # Generate the test results HTML with our enhanced template
+            test_results_html = ""
+            for test in tests:
+                # Set up icon based on status
+                if test["status"] == "passed":
+                    icon_class = "fa-check text-passed"
+                    status_text = "Passed"
+                elif test["status"] == "failed":
+                    icon_class = "fa-times text-failed"
+                    status_text = "Failed"
+                elif test["status"] == "skipped":
+                    icon_class = "fa-forward text-skipped"
+                    status_text = "Skipped"
+                else:
+                    icon_class = "fa-info-circle"
+                    status_text = "Info"
+
+                # Create the error sections
+                primary_error_section = ""
+                if test.get("primary_error"):
+                    primary_error_section = f"""
+                    <div class="error-section">
+                        <strong>Primary Error:</strong>
+                        <div>{test["primary_error"]}</div>
+                    </div>
+                    """
+
+                secondary_error_section = ""
+                if test.get("secondary_error"):
+                    secondary_error_section = f"""
+                    <div class="error-section">
+                        <strong>Secondary Error:</strong>
+                        <div>{test["secondary_error"]}</div>
+                    </div>
+                    """
+
+                logs_section = ""
+                if test.get("logs"):
+                    logs_section = f"""
+                    <div class="logs-section">
+                        <strong>Captured Logs:</strong>
+                        <div>{test["logs"]}</div>
+                    </div>
+                    """
+
+                # Fill in template
+                line = test.get("line", "")
+                test_html = test_template.format(
+                    status=test["status"],
+                    icon_class=icon_class,
+                    file=test["file"],
+                    line=line,
+                    name=test["name"],
+                    status_text=status_text,
+                    summary=test.get("summary", "Test result"),
+                    primary_error_section=primary_error_section,
+                    secondary_error_section=secondary_error_section,
+                    logs_section=logs_section,
+                    output=test["output"],
+                )
+                test_results_html += test_html
 
             # Create a simple HTML report with better formatting and interactive features
             with open(report_path, 'w', encoding='utf-8') as f:
                 # First part of the HTML with dynamic content
-                f.write(f"""<!DOCTYPE html>
+                f.write(
+                    f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -460,6 +773,26 @@ def run_tests(*args):
         .test-skipped {{
             border-left-color: var(--warning-color);
         }}
+        .test-summary {{
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 1rem;
+        }}
+        .test-reason {{
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }}
+        .reason-content {{
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: var(--bg-light);
+            border-radius: 4px;
+        }}
         .test-output {{
             background-color: var(--bg-light);
             padding: 1rem;
@@ -527,6 +860,7 @@ def run_tests(*args):
         button.collapsible:hover {{
             background-color: #e5e7eb;
         }}
+        {additional_css}
         @media (max-width: 768px) {{
             .summary {{
                 grid-template-columns: 1fr;
@@ -553,7 +887,7 @@ def run_tests(*args):
             <div class="card-body">
                 <div class="summary">
                     <div class="summary-item summary-all">
-                        <span class="summary-number">{len(tests)}</span>
+                        <span class="summary-number">{len([t for t in tests if t.get('is_test', True) and t['status'] != 'info'])}</span>
                         <span>Total Tests</span>
                     </div>
                     <div class="summary-item summary-passed">
@@ -620,22 +954,7 @@ def run_tests(*args):
                 </div>
 
                 <div id="test-results">
-                    {"".join([f'''
-                    <div class="test-details test-{test['status']}" data-status="{test['status']}">
-                        <div class="card-header collapsible">
-                            <span>
-                                <span class="icon">
-                                    <i class="fas {('fa-check text-passed' if test['status'] == 'passed' else 'fa-times text-failed' if test['status'] == 'failed' else 'fa-forward text-skipped')}"></i>
-                                </span>
-                                {test['file']} :: {test['name']}
-                            </span>
-                            <span class="status-badge {test['status']}">{test['status'].capitalize()}</span>
-                        </div>
-                        <div class="content">
-                            <div class="test-output">{test['output']}</div>
-                        </div>
-                    </div>
-                    ''' for test in tests])}
+                    {test_results_html}
                 </div>
             </div>
         </div>
@@ -656,7 +975,8 @@ def run_tests(*args):
                 </div>
             </div>
         </div>
-    </div>""")
+    </div>"""
+                )
 
                 # JavaScript part as a regular string, NOT an f-string
                 f.write("""
